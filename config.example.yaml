@@ -1,0 +1,95 @@
+telegram:
+  enabled: false
+  bot_token: ''
+  chat_id: ''
+futu:
+  enabled: true
+  host: 127.0.0.1
+  port: 11111
+feed:
+  mode: auto
+market:
+  timezone: Asia/Hong_Kong
+  sessions:
+  - - 09:30
+    - '12:00'
+  - - '13:00'
+    - '16:00'
+scanner:
+  interval_sec: 30
+  bar_size: 1m
+  lookback_bars: 300
+  watchlist:
+  - 0700.HK
+  - 9988.HK
+  - 3690.HK
+  - 9618.HK
+  - 9999.HK
+  - 1810.HK
+  - 1024.HK
+  - 9888.HK
+  - 9868.HK
+  - 2015.HK
+  - 1211.HK
+  - 2318.HK
+  - 1299.HK
+  - 0005.HK
+  - 0941.HK
+  - 0883.HK
+  - 0388.HK
+  - 1177.HK
+  - 2020.HK
+  - 6690.HK
+  watchlist_us:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - META
+  - TSLA
+  - AMD
+  - NFLX
+  - JPM
+strategy:
+  vol_ma_window: 20
+  vol_expand_ratio: 2.0
+  ema_fast: 20
+  ema_slow: 50
+  bb_window: 20
+  bb_k: 2.0
+  bb_width_pctile: 80
+  fib_lookback: 60
+  fib_levels:
+  - 0.382
+  - 0.618
+  fib_tolerance_pct: 1.5
+  rsi_window: 14
+  rsi_lo: 45
+  rsi_hi: 58
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  macd_shrink_bars: 3
+  macd_cross_lookback: 5
+  require_all: false
+  min_score: 4
+trade_rules:
+  take_profit_pct: 5.0
+  stop_loss_pct: 3.0
+  force_eod_exit: true
+  eod_warn_minutes: 10
+backtest:
+  years: 5
+  cost_pct: 0.15
+optimizer:
+  metric: profit_factor
+  min_trades: 30
+  train_ratio: 0.7
+scheduler:
+  retune_time: '17:30'
+  baseline_on_start: true
+web:
+  host: 0.0.0.0
+  port: 8000
+  access_token: 25907798@67510861

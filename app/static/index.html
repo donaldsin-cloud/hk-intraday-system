@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>港股即日買賣訊號系統</title>
+<style>
+:root{
+  --bg:#0b1220;--card:#121a2b;--card2:#0f1726;--line:#223047;
+  --tx:#e8eefb;--dim:#8fa3c4;--up:#22c55e;--dn:#ef4444;--gold:#eab308;
+  --blue:#3b82f6;--purple:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);
+  font-family:-apple-system,"Segoe UI","Microsoft JhengHei",Roboto,sans-serif;
+  min-height:100vh;padding-bottom:40px}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:12px 4px;border-bottom:1px solid var(--line);margin-bottom:12px}
+header h1{font-size:19px;font-weight:700;letter-spacing:.5px}
+.badge{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
+.badge.open{color:#052;background-color:#86efac;border-color:#86efac;color:#052e16}
+.badge.closed{background:#334155;color:#cbd5e1}
+.spacer{flex:1}
+#feedTag,#clock{font-size:13px;color:var(--dim)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+.tab{padding:8px 16px;border-radius:10px 10px 0 0;background:var(--card2);
+  border:1px solid var(--line);border-bottom:none;color:var(--dim);cursor:pointer;
+  font-size:14px;white-space:nowrap}
+.tab.active{background:var(--card);color:var(--tx);border-bottom:2px solid var(--blue)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:14px;margin-bottom:14px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.card h2{font-size:15px;margin-bottom:10px;color:var(--dim);font-weight:600}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px}
+th{color:var(--dim);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);
+  white-space:nowrap;font-weight:600}
+td{padding:7px 8px;border-bottom:1px solid rgba(34,48,71,.5);white-space:nowrap}
+tr:hover td{background:rgba(59,130,246,.06)}
+.f-on{color:var(--up);font-weight:700}
+.f-off{color:#3b4a63}
+.score{display:inline-block;min-width:30px;text-align:center;border-radius:8px;
+  padding:2px 6px;font-weight:700}
+.s6{background:var(--up);color:#041}.s5{background:var(--gold);color:#201a02}
+.s4{background:#64748b;color:#fff}.s0-3{background:#27354d;color:#9db0cf}
+.buy-row td{background:rgba(34,197,94,.09)}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px}
+.ph-WATCH{background:#1e293b;color:#93c5fd}
+.ph-LONG{background:rgba(34,197,94,.18);color:var(--up);font-weight:700}
+.ph-DONE{background:rgba(234,179,8,.15);color:var(--gold)}
+.pos{color:var(--up)}.neg{color:var(--dn)}
+button{background:var(--blue);border:none;color:#fff;padding:8px 16px;
+  border-radius:9px;font-size:13.5px;cursor:pointer;font-family:inherit}
+button:active{transform:scale(.97)}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi .v{font-size:22px;font-weight:800;margin-top:4px}
+.kpi .k{font-size:12px;color:var(--dim)}
+canvas{width:100%;height:260px;display:block}
+.mono{font-variant-numeric:tabular-nums}
+.side-buy{color:var(--up);font-weight:700}.side-sell{color:var(--dn);font-weight:700}
+.empty{color:var(--dim);text-align:center;padding:26px 0;font-size:14px}
+.note{font-size:12px;color:var(--dim);line-height:1.7;margin-top:8px}
+select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx);
+  padding:7px 10px;border-radius:8px;font-size:13.5px;font-family:inherit}
+@media(max-width:640px){
+  header h1{font-size:16px}
+  .wrap{padding:10px}
+  table{min-width:760px;font-size:12.5px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>📈 港美即日買賣訊號</h1>
+  <span id="hkBadge" class="badge closed">HK 休市</span>
+  <span id="usBadge" class="badge closed">US 休市</span>
+  <div class="spacer"></div>
+  <span id="feedTag">feed: -</span>
+  <span id="clock">--:--:--</span>
+  <button class="ghost" onclick="scanNow()">立即掃描</button>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-t="live">即時監察</div>
+  <div class="tab" data-t="cx">🔍 自選分析</div>
+  <div class="tab" data-t="sig">訊號紀錄</div>
+  <div class="tab" data-t="bt">回測與調叟</div>
+  <div class="tab" data-t="set">⚙️ 設定</div>
+</div>
+
+<!-- ============ 即時監察 ============ -->
+<div id="tab-live">
+  <div class="card">
+    <h2>六大入市指標 · 即時狀態 <span class="note">(✅=條件成立;點列可看指標數值)</span></h2>
+    <div class="tblwrap"><table id="liveTbl">
+      <thead><tr>
+        <th>市場</th><th>代號</th><th>名稱</th><th>現價</th><th>P&amp;L</th>
+        <th title="① 成交量放大">①量</th>
+        <th title="② 均線向上·價在均線上方">②均線</th>
+        <th title="③ 布林帶開口">③布林</th>
+        <th title="④ 回調至斐波 38.2/61.8">④斐波</th>
+        <th title="⑤ RSI 50 附近止穩回升">⑤RSI</th>
+        <th title="⑥ MACD 縮柱·金叉">⑥MACD</th>
+        <th>評分</th><th>狀態</th><th>更新</th>
+      </tr></thead><tbody></tbody>
+    </table></div>
+    <p class="note">買入 = <b>至少 4 項指標成立</b>(min_score 可調,6 項全中為最強訊號)。持倉中到達 <b>+5%</b> 或止損會即時 Telegram 通知並標記賣出。</p>
+  </div>
+</div>
+
+<!-- ============ 自選分析 ============ -->
+<div id="tab-cx" style="display:none">
+  <div class="card">
+    <h2>自選獨立分析(不影響監察名單)</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="cxSym" placeholder="輸入代號:AAPL、TSLA、0700.HK…" style="flex:1;min-width:180px"
+             onkeydown="if(event.key==='Enter')doAnalyze()">
+      <select id="cxSize">
+        <option value="1m">1 分K</option>
+        <option value="5m">5 分K</option>
+        <option value="15m">15 分K</option>
+      </select>
+      <button onclick="doAnalyze()">🔍 分析</button>
+      <button class="ghost" onclick="doSingleBT()">回測此股 5 年</button>
+    </div>
+    <p class="note">直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。
+      「回測此股」以日K模擬即日鮮(+5%目標/止損/收市平倉),結果存入「回測與調叟」清單。</p>
+  </div>
+  <div id="cxResult"></div>
+</div>
+
+<!-- ============ 訊號紀錄 ============ -->
+<div id="tab-sig" style="display:none">
+  <div class="card">
+    <h2>Telegram 買賣訊號紀錄</h2>
+    <div class="tblwrap"><table id="sigTbl">
+      <thead><tr><th>時間</th><th>方向</th><th>代號</th><th>名稱</th>
+        <th>價格</th><th>P&amp;L</th><th>評分</th><th>備註</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="note" id="tgNote"></p>
+  </div>
+</div>
+
+<!-- ============ 回測 ============ -->
+<div id="tab-bt" style="display:none">
+  <div class="card">
+    <h2>回測紀錄(最近5年 · 每日自動重跑調叟)</h2>
+    <div class="tblwrap"><table id="btTbl">
+      <thead><tr><th>#</th><th>時間</th><th>類型</th><th>獲利因子</th>
+        <th>勝率</th><th>交易數</th><th>總報酬</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="note">「每日調叟」= 每個交易日收市後以最近5年數據重新網格搜索,
+      以<b>驗證集獲利因子最高</b>(交易數≥下限)選出最佳參數,寫入 best_params.json 供翌日掃描使用。</p>
+  </div>
+  <div class="card" id="btDetail" style="display:none"></div>
+</div>
+<!-- ============ 設定 ============ -->
+<div id="tab-set" style="display:none">
+  <div class="card">
+    <h2>⚙️ 所有參數設定 <span id="ovBadge" class="note"></span></h2>
+    <div id="setForm"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button onclick="saveSettings()">💾 儲存全部參數</button>
+      <button class="ghost" onclick="clearOverlay()">清除每日調叟覆蓋</button>
+      <span id="setMsg" class="note"></span>
+    </div>
+    <p class="note">儲存後立即生效並寫回 config.yaml。「清除調叟覆蓋」會刪除 best_params.json,
+      讓此頁的基礎參數直接生效(否則每日自動調叟的結果優先)。</p>
+  </div>
+</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=(v,d=2)=>v==null?'-':Number(v).toFixed(d);
+const pct=v=>v==null?'-':`<span class="${v>=0?'pos':'neg'}">${v>=0?'+':''}${fmt(v)}%</span>`;
+const flagCell=on=>on?'<span class="f-on">✔</span>':'<span class="f-off">·</span>';
+const scoreCls=s=>s>=6?'s6':s===5?'s5':s===4?'s4':'s0-3';
+const PH={WATCH:'觀察',LONG:'🟢 持倉',DONE:'已平倉','-':'-'};
+
+/* ---- 存取金鑰 + 統一 fetch ---- */
+let KEY=localStorage.getItem('dsh_key')||'';
+function api(url,opt={}){
+  opt.headers=Object.assign({},opt.headers||{},KEY?{'X-Access-Key':KEY}:{});
+  return fetch(url,opt).then(r=>{
+    if(r.status===401){
+      KEY=prompt('此站已啟用存取金鑰,請輸入 Access Key:')||'';
+      localStorage.setItem('dsh_key',KEY);
+      opt.headers=Object.assign({},opt.headers,KEY?{'X-Access-Key':KEY}:{});
+      return fetch(url,opt);
+    }
+    return r;
+  });
+}
+
+/* ---- tabs ---- */
+$$('.tab').forEach(t=>t.onclick=()=>{
+  $$('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  ['live','cx','sig','bt','set'].forEach(k=>$('#tab-'+k).style.display=k===t.dataset.t?'':'none');
+  if(t.dataset.t==='sig')loadSignals();
+  if(t.dataset.t==='bt')loadBacktests();
+  if(t.dataset.t==='set')renderSettings();
+});
+
+/* ---- clock & meta ---- */
+async function tick(){
+  $('#clock').textContent=new Date().toLocaleTimeString('zh-HK',{hour12:false});
+}
+setInterval(tick,1000);tick();
+
+function setBadge(sel,open,label){
+  const b=$(sel);
+  b.textContent=label+(open?' 開市':' 休市');
+  b.className='badge '+(open?'open':'closed');
+}
+let META=null;
+async function loadMeta(){
+  try{
+    META=await (await api('/api/meta')).json();
+    setBadge('#hkBadge',META.hk_open,'HK');
+    setBadge('#usBadge',META.us_open,'US');
+    $('#feedTag').textContent='feed: '+META.feed+(META.telegram_enabled?' · TG✓':' · TG✗');
+    if(!META.telegram_enabled)$('#tgNote').textContent='⚠️ Telegram 未啟用:請到「⚙️ 設定」分頁填 bot_token / chat_id 並勾選啟用。訊號仍會記錄於上表。';
+  }catch(e){}
+}
+
+/* ---- live table ---- */
+function metricTip(m){
+  if(!m)return'';
+  return [`量比 ${fmt(m.vol_ratio)}x`,`EMA${'快慢'} ${fmt(m.ema_fast)}/${fmt(m.ema_slow)}`,
+    `布林百分位 ${fmt(m.bb_width_pctile,0)}`,`斐波 ${m.fib_name||'-'} ${fmt(m.fib_level)} (距${fmt(m.fib_dist_pct)}%)`,
+    `RSI ${fmt(m.rsi,1)}`,`MACD柱 ${fmt(m.macd_hist,3)} ${m.macd_note||''}`].join('\n');
+}
+async function loadLive(){
+  try{
+    const d=await (await api('/api/state')).json();
+    const tb=$('#liveTbl tbody');tb.innerHTML='';
+    for(const r of d.symbols||[]){
+      const f=r.flags||{};
+      const tr=document.createElement('tr');
+      if(r.buy)tr.className='buy-row';
+      tr.title=metricTip(r.metrics);
+      tr.innerHTML=`<td>${r.market==='us'?'🇺🇸':'🇭🇰'}</td>
+        <td class="mono"><b>${esc(r.symbol)}</b></td>
+        <td>${esc(r.name)}</td>
+        <td class="mono">${fmt(r.price)}</td>
+        <td class="mono">${r.pnl!=null?pct(r.pnl):'-'}</td>
+        <td>${flagCell(f.vol)}</td><td>${flagCell(f.trend)}</td><td>${flagCell(f.bb)}</td>
+        <td>${flagCell(f.fib)}</td><td>${flagCell(f.rsi)}</td><td>${flagCell(f.macd)}</td>
+        <td><span class="score ${scoreCls(r.score)}">${r.score??'-'}</span></td>
+        <td><span class="chip ph-${r.phase||'-'}">${PH[r.phase]||'-'}</span></td>
+        <td class="mono" style="color:var(--dim)">${(r.ts||'').slice(11,19)||'-'}</td>`;
+      tb.appendChild(tr);
+    }
+    if(!(d.symbols||[]).length)
+      tb.innerHTML='<tr><td colspan="14" class="empty">等待掃描…(開市時段每 30 秒自動更新)</td></tr>';
+  }catch(e){}
+}
+async function scanNow(){try{await api('/api/scan-now',{method:'POST'});}catch(e){}}
+
+/* ---- signals ---- */
+async function loadSignals(){
+  try{
+    const list=await (await api('/api/signals?limit=60')).json();
+    const tb=$('#sigTbl tbody');tb.innerHTML='';
+    for(const s of list){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td class="mono">${esc(s.ts)}</td>
+        <td class="side-${s.side.toLowerCase()}">${s.side==='BUY'?'🟢 買入':'🔴 賣出'}</td>
+        <td class="mono">${esc(s.symbol)}</td><td>${esc(s.flags?.name||'')}</td>
+        <td class="mono">${fmt(s.price)}</td>
+        <td class="mono">${s.pnl!=null?pct(s.pnl):'-'}</td>
+        <td>${s.score??'-'}</td><td style="max-width:340px;white-space:normal">${esc(s.note)}</td>`;
+      tb.appendChild(tr);
+    }
+    if(!list.length)tb.innerHTML='<tr><td colspan="8" class="empty">暫無訊號</td></tr>';
+  }catch(e){}
+}
+
+/* ---- backtests ---- */
+async function loadBacktests(){
+  try{
+    const list=await (await api('/api/backtests')).json();
+    const tb=$('#btTbl tbody');tb.innerHTML='';
+    for(const b of list){
+      const s=b.summary||{};
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${b.id}</td><td class="mono">${esc(b.ts)}</td>
+        <td>${esc(b.kind)}</td><td class="mono"><b>${fmt(s.profit_factor,2)}</b></td>
+        <td class="mono">${fmt(s.win_rate,1)}%</td>
+        <td class="mono">${s.trades??'-'}</td>
+        <td class="mono">${pct(s.total_return_pct)}</td>
+        <td><button onclick="showBT(${b.id})">詳情</button></td>`;
+      tb.appendChild(tr);
+    }
+    if(!list.length)tb.innerHTML='<tr><td colspan="8" class="empty">尚無回測 — 等待排程器首次基準回測,或執行 python run.py tune</td></tr>';
+  }catch(e){}
+}
+async function showBT(id){
+  const d=await (await api('/api/backtests/'+id)).json();
+  const m=d.metrics||{},el=$('#btDetail');
+  el.style.display='';
+  el.innerHTML=`<h2>回測 #${d.id} 詳情(${esc(d.ts)} · ${esc(d.kind)})</h2>
+   <div class="grid" style="margin-bottom:12px">
+     ${[['獲利因子 PF',fmt(m.profit_factor,2)],['勝率',fmt(m.win_rate,1)+'%'],
+        ['總交易',m.trades],['期望值/筆',pct(m.expectancy_pct)],
+        ['平均盈利',pct(m.avg_win_pct)],['平均虧損',pct(m.avg_loss_pct)],
+        ['總報酬(複利)',pct(m.total_return_pct)],['年化',pct(m.cagr_pct)],
+        ['最大回撤','-'+fmt(m.max_drawdown_pct,1)+'%'],['交易天數',m.trade_days]]
+       .map(([k,v])=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}
+   </div>
+   <h2 style="margin-top:6px">權益曲線(同日均報酬複利)</h2>
+   <canvas id="eqChart"></canvas>
+   <h2 style="margin-top:12px">最佳化參數覆蓋</h2>
+   <pre style="background:var(--card2);padding:10px;border-radius:10px;overflow-x:auto;font-size:12.5px">${esc(JSON.stringify(d.overrides,null,2))}</pre>
+   <h2 style="margin-top:12px">每股表現</h2>
+   <div class="tblwrap"><table><thead><tr><th>代號</th><th>交易</th><th>勝率</th><th>PF</th><th>總報酬</th></tr></thead><tbody>
+     ${Object.entries(m.per_symbol||{}).map(([s,x])=>`<tr><td>${esc(s)}</td><td>${x.trades}</td>
+       <td>${fmt(x.win_rate,1)}%</td><td>${fmt(x.profit_factor,2)}</td><td>${pct(x.total_return_pct)}</td></tr>`).join('')}
+   </tbody></table></div>
+   <h2 style="margin-top:12px">近期交易(最多500筆)</h2>
+   <div class="tblwrap"><table><thead><tr><th>日期</th><th>代號</th><th>進場</th><th>出場</th><th>原因</th><th>報酬</th></tr></thead><tbody>
+     ${(d.trades||[]).slice(-80).reverse().map(t=>`<tr><td class="mono">${t.date}</td><td>${esc(t.symbol)}</td>
+       <td class="mono">${fmt(t.entry)}</td><td class="mono">${fmt(t.exit)}</td>
+       <td>${reasonZh(t.reason)}</td><td class="mono">${pct(t.ret_pct)}</td></tr>`).join('')}
+   </tbody></table></div>`;
+  drawEquity($('#eqChart'),d.equity||[]);
+  el.scrollIntoView({behavior:'smooth'});
+}
+const reasonZh=r=>({'take-profit':'🎯 目標+5%','stop-loss':'🛑 止損','eod-close':'⏰ 收市平倉'}[r]||r);
+
+/* ---- canvas equity chart(離線可用,不依賴CDN)---- */
+function drawEquity(cv,pts){
+  if(!cv||!pts.length){return}
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const vals=pts.map(p=>p[1]);
+  const mn=Math.min(...vals),mx=Math.max(...vals),pad=(mx-mn)*0.08||0.01;
+  const lo=mn-pad,hi=mx+pad;
+  const X=i=>8+(W-16)*(pts.length<2?0:i/(pts.length-1));
+  const Y=v=>H-20-(H-36)*((v-lo)/(hi-lo));
+  g.clearRect(0,0,W,H);
+  // 網格
+  g.strokeStyle='#223047';g.fillStyle='#8fa3c4';g.font='11px sans-serif';
+  for(let k=0;k<=4;k++){
+    const v=lo+(hi-lo)*k/4,y=Y(v);
+    g.beginPath();g.moveTo(8,y);g.lineTo(W-8,y);g.stroke();
+    g.fillText(v.toFixed(3),W-64,y-4);
+  }
+  // 基準線 1.0
+  if(lo<1&&hi>1){g.strokeStyle='#64748b';g.setLineDash([4,4]);
+    g.beginPath();g.moveTo(8,Y(1));g.lineTo(W-8,Y(1));g.stroke();g.setLineDash([]);}
+  // 面積
+  const grad=g.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(59,130,246,.35)');grad.addColorStop(1,'rgba(59,130,246,0)');
+  g.beginPath();g.moveTo(X(0),Y(vals[0]));
+  pts.forEach((p,i)=>g.lineTo(X(i),Y(p[1])));
+  g.lineTo(X(pts.length-1),H-20);g.lineTo(X(0),H-20);g.closePath();
+  g.fillStyle=grad;g.fill();
+  // 線
+  g.beginPath();g.moveTo(X(0),Y(vals[0]));
+  pts.forEach((p,i)=>g.lineTo(X(i),Y(p[1])));
+  g.strokeStyle='#3b82f6';g.lineWidth=2;g.stroke();
+}
+
+/* ---- 自選獨立分析 ---- */
+const FZH={vol:'① 成交量放大',trend:'② 均線向上·價在均線上',bb:'③ 布林帶開口',
+  fib:'④ 斐波回調到位',rsi:'⑤ RSI 止穩回升',macd:'⑥ MACD 縮柱金叉'};
+function fv(m,k){
+  const v=m?.[k];if(v==null)return'';
+  if(k==='vol_ratio')return v+'×';if(k==='rsi')return String(v);
+  if(k==='fib_level')return '@'+v;if(k==='fib_dist_pct')return '距離'+v+'%';
+  if(k==='macd_hist')return '柱 '+v;if(k==='bb_width_pctile')return '分位 '+v;
+  return String(v);
+}
+async function doAnalyze(){
+  const sym=$('#cxSym').value.trim();if(!sym)return;
+  $('#cxResult').innerHTML='<div class="card"><div class="empty">⏳ 分析中…</div></div>';
+  try{
+    const r=await api('/api/analyze?symbol='+encodeURIComponent(sym)+'&size='+$('#cxSize').value);
+    const d=await r.json();
+    if(d.detail){$('#cxResult').innerHTML=`<div class="card"><div class="empty">❌ ${esc(d.detail)}</div></div>`;return;}
+    renderAnalyze(d);
+  }catch(e){$('#cxResult').innerHTML=`<div class="card"><div class="empty">分析失敗: ${esc(e)}</div></div>`;}
+}
+function renderAnalyze(d){
+  const m=d.metrics||{};
+  const flags=Object.keys(FZH).map(k=>{
+    const on=d.flags?.[k];
+    let detail='';
+    if(k==='vol')detail=fv(m,'vol_ratio');
+    else if(k==='trend')detail=`EMA ${fmt(m.ema_fast)}/${fmt(m.ema_slow)}`;
+    else if(k==='bb')detail=(m.bb_squeeze?'壓縮後':'')+fv(m,'bb_width_pctile');
+    else if(k==='fib')detail=`${m.fib_name||''} ${fv(m,'fib_level')} ${fv(m,'fib_dist_pct')}`;
+    else if(k==='rsi')detail=fv(m,'rsi');
+    else if(k==='macd')detail=`${fv(m,'macd_hist')} ${m.macd_note||''}`;
+    return `<div class="kpi" style="${on?'border-color:var(--up)':''}">
+      <div class="k">${on?'✅':'▫️'} ${FZH[k]}</div>
+      <div class="v" style="font-size:15px;color:${on?'var(--up)':'var(--dim)'}">${detail||'—'}</div></div>`;
+  }).join('');
+  const tr=ctx_rules();
+  $('#cxResult').innerHTML=`<div class="card">
+    <h2>${d.market==='us'?'🇺🇸':'🇭🇰'} <b>${esc(d.symbol)}</b> ${esc(d.name||'')}
+      <span class="score ${scoreCls(d.score)}" style="font-size:16px">${d.score}/6</span></h2>
+    <div class="grid" style="margin-bottom:10px">
+      <div class="kpi"><div class="k">${esc(String(d.bar_size))}K 現價</div><div class="v">${fmt(d.close)}</div></div>
+      <div class="kpi"><div class="k">單K漲跌</div><div class="v">${pct(d.chg_pct)}</div></div>
+      <div class="kpi"><div class="k">止損參考</div><div class="v neg">${fmt((d.close||0)*(1-(tr.stop_loss_pct||3)/100))}</div></div>
+      <div class="kpi"><div class="k">目標(+${tr.take_profit_pct||5}%)</div><div class="v pos">${fmt((d.close||0)*(1+(tr.take_profit_pct||5)/100))}</div></div>
+    </div>
+    <div class="grid">${flags}</div>
+    ${d.buy?'<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 符合買入條件(≥'+(META?.trade_rules?tr_min():4)+' 項成立)</p>':''}
+  </div>`;
+}
+function tr_min(){return META?.strategy?.min_score??4}
+function ctx_rules(){return META?.trade_rules||{take_profit_pct:5,stop_loss_pct:3}}
+async function doSingleBT(){
+  const sym=$('#cxSym').value.trim();if(!sym)return;
+  $('#cxResult').insertAdjacentHTML('afterbegin',
+    '<div class="card" id="btSpin"><div class="empty">⏳ 正在回測最近 5 年…(約數秒)</div></div>');
+  try{
+    const r=await api('/api/backtest-single',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol:sym,years:5})});
+    const d=await r.json();
+    $('#btSpin')?.remove();
+    if(d.detail){$('#cxResult').insertAdjacentHTML('afterbegin',
+      `<div class="card"><div class="empty">❌ ${esc(d.detail)}</div></div>`);return;}
+    $('#cxResult').insertAdjacentHTML('afterbegin',`<div class="card">
+      <h2>📊 ${esc(d.symbol)} 近 ${d.years} 年回測 <span class="note">#${d.run_id} · 已存入回測清單,可到「回測與調叟」看詳情</span></h2>
+      <div class="grid">
+        <div class="kpi"><div class="k">獲利因子</div><div class="v">${fmt(d.profit_factor,2)}</div></div>
+        <div class="kpi"><div class="k">勝率</div><div class="v">${fmt(d.win_rate,1)}%</div></div>
+        <div class="kpi"><div class="k">交易數</div><div class="v">${d.trades}</div></div>
+        <div class="kpi"><div class="k">總報酬</div><div class="v">${pct(d.total_return_pct)}</div></div>
+        <div class="kpi"><div class="k">最大回撤</div><div class="v">-${fmt(d.max_drawdown_pct,1)}%</div></div>
+      </div></div>`);
+  }catch(e){$('#btSpin')?.remove();alert('回測失敗:'+e)}
+}
+
+/* ---- 設定分頁:所有參數 ---- */
+const SCHEMA=[
+ ['strategy','六大入市指標參數',[
+   ['vol_ma_window','①量均線視窗','num'],['vol_expand_ratio','①量放大倍數','fnum'],
+   ['ema_fast','②快線 EMA','num'],['ema_slow','②慢線 EMA','num'],
+   ['bb_window','③布林視窗','num'],['bb_k','③標準差 k','fnum'],
+   ['bb_width_pctile','③壓縮分位線','fnum'],
+   ['fib_lookback','④擺動回看根數','num'],['fib_tolerance_pct','④貼近容差 %','fnum'],
+   ['rsi_window','⑤RSI 視窗','num'],['rsi_lo','⑤RSI 下限','fnum'],['rsi_hi','⑤RSI 上限','fnum'],
+   ['macd_fast','⑥MACD 快線','num'],['macd_slow','⑥MACD 慢線','num'],['macd_signal','⑥訊號線','num'],
+   ['macd_shrink_bars','⑥縮柱根數','num'],['macd_cross_lookback','⑥金叉回看根數','num'],
+ ]],
+ ['strategy','★ 買入觸發方式',[
+   ['require_all','六項全中才觸發(取消勾選=依下方最低項數)','chk'],
+   ['min_score','最少成立項數(1-6)','num'],
+ ]],
+ ['trade_rules','即日買賣規則',[
+   ['take_profit_pct','目標利潤 %(賣出)','fnum'],['stop_loss_pct','止損 %','fnum'],
+   ['force_eod_exit','收市前強制平倉','chk'],['eod_warn_minutes','收市前提示(分鐘)','num'],
+ ]],
+ ['scanner','掃描設定',[
+   ['interval_sec','掃描間隔(秒)','num'],['bar_size','K線週期','sel:1m|5m|15m'],
+   ['lookback_bars','回看根數','num'],
+ ]],
+ ['backtest','回測',[['years','回測年數','num'],['cost_pct','每筆來回成本 %','fnum']]],
+ ['optimizer','獲利因子調叟',[
+   ['min_trades','驗證集最低交易數','num'],['train_ratio','訓練集比例','fnum']]],
+ ['scheduler','排程',[
+   ['retune_time','每日自動調叟時間(HKT)','txt'],['baseline_on_start','啟動時自動基準回測','chk']]],
+ ['feed','數據源',[['mode','模式','sel:auto|futu|yfinance|synthetic']]],
+ ['telegram','Telegram 通知',[
+   ['enabled','啟用推送','chk'],['bot_token','Bot Token','pwd'],['chat_id','Chat ID','txt']]],
+ ['web','公開存取保護',[['access_token','存取金鑰(設為空 = 不設防)','txt']]],
+];
+let CFGFULL=null;
+async function renderSettings(){
+  try{
+    CFGFULL=await (await api('/api/config/full')).json();
+  }catch(e){$('#setForm').innerHTML='<div class="empty">載入失敗</div>';return;}
+  const src={...CFGFULL};
+  src.scanner={interval_sec:CFGFULL.scanner.interval_sec,bar_size:CFGFULL.scanner.bar_size,
+               lookback_bars:CFGFULL.scanner.lookback_bars};
+  let html='';
+  for(const [g,title,fields] of SCHEMA){
+    html+=`<h2 style="margin-top:12px">${title}</h2><div class="grid">`;
+    for(const [k,label,type] of fields){
+      const id=`pf_${g}_${k}`,val=src[g]?.[k];
+      if(type==='chk')
+        html+=`<div class="kpi"><label class="k"><input type="checkbox" id="${id}" data-g="${g}" data-k="${k}" data-t="chk" ${val?'checked':''}> ${label}</label></div>`;
+      else if(type.startsWith('sel:'))
+        html+=`<div class="kpi"><div class="k">${label}</div><select id="${id}" data-g="${g}" data-k="${k}" data-t="str">${
+          type.split(':')[1].split('|').map(o=>`<option ${o===String(val)?'selected':''}>${o}</option>`).join('')}</select></div>`;
+      else
+        html+=`<div class="kpi"><div class="k">${label}</div><input id="${id}" data-g="${g}" data-k="${k}" data-t="${type}" value="${esc(val)}" style="width:100%" ${type==='pwd'?'type="password"':''}></div>`;
+    }
+    html+='</div>';
+  }
+  // 監察名單
+  html+=`<h2 style="margin-top:14px">監察名單(每行一個代號)</h2><div class="grid">
+    <div class="kpi"><div class="k">🇭🇰 港股(如 0700.HK)</div>
+      <textarea id="pf_wl_hk" rows="6" style="width:100%">${esc(CFGFULL.scanner.watchlist.join('\n'))}</textarea></div>
+    <div class="kpi"><div class="k">🇺🇸 美股(如 AAPL)</div>
+      <textarea id="pf_wl_us" rows="6" style="width:100%">${esc(CFGFULL.scanner.watchlist_us.join('\n'))}</textarea></div>
+  </div>
+  <p class="note">${CFGFULL.overlay_active?'⚠️ 目前「每日調叟覆蓋」生效中——基礎參數的閾值會被 best_params.json 覆蓋。想讓此頁參數完全生效請按「清除每日調叟覆蓋」。':''}</p>`;
+  $('#setForm').innerHTML=html;
+  $('#ovBadge').textContent=CFGFULL.overlay_active?'(目前由每日調叟覆蓋接管閾值)':'';
+}
+function collectSettings(){
+  const out={};
+  for(const el of document.querySelectorAll('#setForm [data-g]')){
+    const g=el.dataset.g,k=el.dataset.k,t=el.dataset.t;
+    out[g]=out[g]||{};
+    out[g][k]= t==='chk'?el.checked : (t==='num'?parseInt(el.value,10) : t==='fnum'?parseFloat(el.value):el.value);
+    if(t!=='chk'&&(isNaN(out[g][k]))&&el.value!==''){/* keep raw */}
+  }
+  const hk=($('#pf_wl_hk')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const us=($('#pf_wl_us')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  if(hk.length)out.scanner=out.scanner||{},out.scanner.watchlist=hk;
+  if(us.length)out.scanner=out.scanner||{},out.scanner.watchlist_us=us;
+  return out;
+}
+async function saveSettings(){
+  $('#setMsg').textContent='儲存中…';
+  try{
+    const body=collectSettings();
+    const r=await api('/api/config/full',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    $('#setMsg').textContent=d.ok?'✅ 已儲存並即時生效':('❌ '+(d.detail||'失敗'));
+    loadMeta();
+  }catch(e){$('#setMsg').textContent='❌ '+e}
+}
+async function clearOverlay(){
+  if(!confirm('確定刪除 best_params.json(每日調叟覆蓋)?'))return;
+  await api('/api/config/clear-overlay',{method:'POST'});
+  $('#setMsg').textContent='✅ 已清除覆蓋,此頁參數現為生效值';
+  renderSettings();loadMeta();
+}
+
+/* ---- polling ---- */
+loadMeta();loadLive();
+setInterval(loadLive,10000);
+setInterval(loadMeta,30000);
+setInterval(()=>{if($('#tab-sig').style.display!=='none')loadSignals()},15000);
+setInterval(()=>{if($('#tab-bt').style.display!=='none')loadBacktests()},30000);
+</script>
+</body>
+</html>

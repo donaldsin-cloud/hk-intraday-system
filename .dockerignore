@@ -1,0 +1,9 @@
+.deps/
+.venv-deps/
+.venv/
+data/
+**/__pycache__/
+*.pyc
+*.db
+scripts/
+.git/

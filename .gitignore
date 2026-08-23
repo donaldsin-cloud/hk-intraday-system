@@ -1,0 +1,16 @@
+.venv/
+.venv-deps/
+.deps/
+data/
+.tmp/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+.DS_Store
+
+# 機密:本機/容器內的實際設定(Telegram token 等)一律不入 repo
+config.yaml
+
+# 系統檔
+Thumbs.db

@@ -1,0 +1,11 @@
+pandas>=2.0
+numpy>=1.24
+PyYAML>=6.0
+requests>=2.31
+fastapi>=0.110
+uvicorn[standard]>=0.29
+yfinance>=0.2.40
+tzdata>=2024.1
+
+# 富途 OpenAPI(可選):需要即時行情/歷史數據時安裝
+# futu-api>=5.4
