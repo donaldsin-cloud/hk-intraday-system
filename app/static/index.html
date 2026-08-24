@@ -62,6 +62,7 @@ canvas{width:100%;height:260px;display:block}
 .side-buy{color:var(--up);font-weight:700}.side-sell{color:var(--dn);font-weight:700}
 .empty{color:var(--dim);text-align:center;padding:26px 0;font-size:14px}
 .note{font-size:12px;color:var(--dim);line-height:1.7;margin-top:8px}
+.mkt-btn.active{border-color:var(--up);color:var(--up);font-weight:700}
 select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx);
   padding:7px 10px;border-radius:8px;font-size:13.5px;font-family:inherit}
 @media(max-width:640px){
@@ -95,6 +96,12 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <div id="tab-live">
   <div class="card">
     <h2>六大入市指標 · 即時狀態 <span class="note">(✅=條件成立;點列可看指標數值)</span></h2>
+    <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;align-items:center">
+      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('live','all')">全部</button>
+      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('live','hk')">🇭🇰 港股</button>
+      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('live','us')">🇺🇸 美股</button>
+      <span id="mktStats" class="note"></span>
+    </div>
     <div id="feedErr" style="display:none;color:var(--dn);font-size:13px;
          margin-bottom:8px;white-space:normal"></div>
     <div class="tblwrap"><table id="liveTbl">
@@ -140,6 +147,11 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <div id="tab-sig" style="display:none">
   <div class="card">
     <h2>Telegram 買賣訊號紀錄</h2>
+    <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap">
+      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('sig','all')">全部</button>
+      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('sig','hk')">🇭🇰 港股</button>
+      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('sig','us')">🇺🇸 美股</button>
+    </div>
     <div class="tblwrap"><table id="sigTbl">
       <thead><tr><th>時間</th><th>方向</th><th>代號</th><th>名稱</th>
         <th>價格</th><th>P&amp;L</th><th>評分</th><th>備註</th></tr></thead>
@@ -241,13 +253,28 @@ function metricTip(m){
     `布林百分位 ${fmt(m.bb_width_pctile,0)}`,`斐波 ${m.fib_name||'-'} ${fmt(m.fib_level)} (距${fmt(m.fib_dist_pct)}%)`,
     `RSI ${fmt(m.rsi,1)}`,`MACD柱 ${fmt(m.macd_hist,3)} ${m.macd_note||''}`].join('\n');
 }
+/* ---- 市場分類過濾 ---- */
+const MKT={live:'all',sig:'all'};
+function setMkt(tab,m){
+  MKT[tab]=m;
+  $$('#tab-'+tab+' .mkt-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
+  tab==='live'?loadLive():loadSignals();
+}
+const mktOfSym=s=>String(s||'').toUpperCase().endsWith('.HK')?'hk':'us';
+
 async function loadLive(){
   try{
     const d=await (await api('/api/state')).json();
     const tb=$('#liveTbl tbody');tb.innerHTML='';
     const errs=[];
-    for(const r of d.symbols||[]){
-      if(r.error)errs.push(r.symbol+': '+r.error);
+    const rows=d.symbols||[];
+    rows.forEach(r=>{if(r.error)errs.push(r.symbol+': '+r.error)});
+    const hk=rows.filter(r=>r.market!=='us'),us=rows.filter(r=>r.market==='us');
+    $('#mktStats').textContent=
+      `🇭🇰 ${hk.length}隻 · 買入${hk.filter(r=>r.buy).length}   |   `+
+      `🇺🇸 ${us.length}隻 · 買入${us.filter(r=>r.buy).length}`;
+    const vis=rows.filter(r=>MKT.live==='all'||(r.market||'hk')===MKT.live);
+    for(const r of vis){
       const f=r.flags||{};
       const tr=document.createElement('tr');
       if(r.buy)tr.className='buy-row';
@@ -264,8 +291,9 @@ async function loadLive(){
         <td class="mono" style="color:var(--dim)">${(r.ts||'').slice(11,19)||'-'}</td>`;
       tb.appendChild(tr);
     }
-    if(!(d.symbols||[]).length)
-      tb.innerHTML='<tr><td colspan="14" class="empty">等待掃描…(開市時段每 30 秒自動更新)</td></tr>';
+    if(!vis.length)
+      tb.innerHTML='<tr><td colspan="14" class="empty">'+
+        (MKT.live==='all'?'等待掃描…(開市時段每 30 秒自動更新)':'此市場暫無資料')+'</td></tr>';
     const fe=$('#feedErr');
     if(errs.length){
       fe.style.display='';
@@ -279,7 +307,8 @@ async function scanNow(){try{await api('/api/scan-now',{method:'POST'});}catch(e
 /* ---- signals ---- */
 async function loadSignals(){
   try{
-    const list=await (await api('/api/signals?limit=60')).json();
+    const list=(await (await api('/api/signals?limit=60')).json())
+      .filter(s=>MKT.sig==='all'||mktOfSym(s.symbol)===MKT.sig);
     const tb=$('#sigTbl tbody');tb.innerHTML='';
     for(const s of list){
       const tr=document.createElement('tr');
