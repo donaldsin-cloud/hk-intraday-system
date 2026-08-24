@@ -188,6 +188,7 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
     <div id="setForm"></div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button onclick="saveSettings()" data-zh="💾 儲存全部參數">💾 儲存全部參數</button>
+      <button class="ghost" onclick="testTelegram()">🧪 <span data-zh="測試 Telegram">測試 Telegram</span></button>
       <button class="ghost" onclick="clearOverlay()" data-zh="清除每日調叟覆蓋">清除每日調叟覆蓋</button>
       <span id="setMsg" class="note"></span>
     </div>
@@ -317,7 +318,11 @@ async function loadMeta(){
     setBadge('#hkBadge',META.hk_open,t('HK'));
     setBadge('#usBadge',META.us_open,t('US'));
     $('#feedTag').textContent='feed: '+META.feed+(META.telegram_enabled?' · TG✓':' · TG✗');
-    if(!META.telegram_enabled)$('#tgNote').textContent=t('⚠️ Telegram 未啟用:請到「⚙️ 設定」分頁填 bot_token / chat_id 並勾選啟用。訊號仍會記錄於上表。');
+    if(!META.telegram_enabled)
+      $('#tgNote').textContent='⚠️ '+t('Telegram 未啟用')+
+        ((META.tg_missing&&META.tg_missing.length)?' — 缺: '+META.tg_missing.join(' / '):'')+
+        '。'+t('請到「⚙️ 設定」分頁填 bot_token / chat_id、勾選啟用推送並按「🧪 測試 Telegram」驗證。訊號仍會記錄於上表。');
+    else $('#tgNote').textContent='';
   }catch(e){}
 }
 
@@ -453,7 +458,9 @@ const reasonZh=r=>({'take-profit':t('🎯 目標+5%'),'stop-loss':t('🛑 止損
 Object.assign(EN,{"🎯 目標+5%":"🎯 +5% target hit","🛑 止損":"🛑 Stop-loss","⏰ 收市平倉":"⏰ EOD close",
 "期望值/筆":"Expectancy","平均盈利":"Avg win","平均虧損":"Avg loss","總報酬(複利)":"Total return","年化":"CAGR","交易天數":"Trade days",
 "分析中…":"Analyzing…","柱 ":"Hist ","分位 ":"pctile ","❌":"❌",
-"即時監察數量上限(0=全部)":"Live scan cap (0 = all)","掃描設定":"Scanning"});
+"即時監察數量上限(0=全部)":"Live scan cap (0 = all)","掃描設定":"Scanning",
+"Telegram 未啟用":"Telegram disabled","測試 Telegram":"Test Telegram",
+"請先填 Bot Token 與 Chat ID":"Fill Bot Token & Chat ID first","修正後可先測試,成功再按儲存":"fix it, test again, then Save"});
 
 /* ---- canvas equity chart(離線可用,不依賴CDN)---- */
 function drawEquity(cv,pts){
@@ -1001,6 +1008,21 @@ async function clearOverlay(){
   await api('/api/config/clear-overlay',{method:'POST'});
   $('#setMsg').textContent=t('✅ 已清除覆蓋,此頁參數現為生效值');
   renderSettings();loadMeta();
+}
+async function testTelegram(){
+  const el=$('#setMsg');
+  const tok=($('#pf_telegram_bot_token')?.value||'').trim();
+  const chat=($('#pf_telegram_chat_id')?.value||'').trim();
+  if(!tok||!chat){el.textContent='❌ '+t('請先填 Bot Token 與 Chat ID');return}
+  el.textContent=t('測試中…');
+  try{
+    const r=await api('/api/telegram/test',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({bot_token:tok,chat_id:chat})});
+    const d=await r.json();
+    el.textContent=(d.ok?'✅ ':'❌ ')+d.detail+(d.ok?'':' — '+t('修正後可先測試,成功再按儲存'));
+    loadMeta();
+  }catch(e){el.textContent='❌ '+e}
 }
 
 /* ---- polling ---- */

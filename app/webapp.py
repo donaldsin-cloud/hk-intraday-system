@@ -84,9 +84,24 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
             "strategy": ctx.cfg.active_strategy().to_dict(),
             "trade_rules": ctx.cfg.trade_rules.__dict__,
             "telegram_enabled": ctx.cfg.tg_enabled,
+            "tg_missing": ([m for m, bad in (
+                ("bot_token", not ctx.cfg.tg_token),
+                ("chat_id", not ctx.cfg.tg_chat),
+                ("啟用推送", not bool(ctx.cfg.raw.get("telegram", {})
+                                      .get("enabled")))) if bad]),
             "scanner": ctx.scanner.status() if ctx.scanner else {"running": False},
             "retuner": ctx.retuner.status() if ctx.retuner else {"running": False},
         }
+
+    @app.post("/api/telegram/test")
+    def telegram_test(body: dict | None = None):
+        """發送 Telegram 測試訊息。可帶未儲存的 token/chat 先測;缺省用已存值。"""
+        from .notifier import send_test
+        body = body or {}
+        token = str(body.get("bot_token") or "").strip() or ctx.cfg.tg_token
+        chat = str(body.get("chat_id") or "").strip() or ctx.cfg.tg_chat
+        ok, msg = send_test(token, chat)
+        return {"ok": ok, "detail": msg}
 
     @app.get("/api/state")
     def state():

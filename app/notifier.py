@@ -8,29 +8,49 @@ import requests
 from .config import stock_name
 
 
+def _friendly_tg_error(status: int, body: str) -> str:
+    """把 Telegram API 錯誤轉成可操作的中文提示。"""
+    low = (body or "").lower()
+    if status == 401:
+        return "Bot Token 錯誤(401)— 請向 @BotFather 重新確認"
+    if "chat not found" in low:
+        return ("Chat ID 錯誤或尚未對話(400)— 請先在 Telegram 找你的 bot "
+                "按 Start 再試;群組 ID 需為 -100 開頭")
+    if "bot was blocked" in low:
+        return "Bot 已被用戶封鎖"
+    if status == 429:
+        return "發送過於頻繁(429),稍後自動重試"
+    return f"HTTP {status}: {(body or '')[:160]}"
+
+
 class Notifier:
     def __init__(self, cfg, store=None):
         self.cfg = cfg
         self.store = store
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tg")
-        self.api = f"https://api.telegram.org/bot{cfg.tg_token}/sendMessage"
         self.last_error: str | None = None
 
     # ---------------- 低階發送 ----------------
     def _post(self, text: str) -> bool:
+        # 每次即時讀取 cfg — 網頁儲存 token/chat_id 後立即生效(無需重啟)
+        if not self.cfg.tg_token or not self.cfg.tg_chat:
+            self.last_error = "缺 bot_token 或 chat_id"
+            return False
         if not self.cfg.tg_enabled:
+            self.last_error = "未勾選「啟用推送」"
             return False
         try:
-            r = requests.post(self.api, json={
-                "chat_id": self.cfg.tg_chat, "text": text,
-                "parse_mode": "HTML", "disable_web_page_preview": True,
-            }, timeout=10)
+            r = requests.post(
+                f"https://api.telegram.org/bot{self.cfg.tg_token}/sendMessage",
+                json={"chat_id": self.cfg.tg_chat, "text": text,
+                      "parse_mode": "HTML", "disable_web_page_preview": True},
+                timeout=10)
             ok = r.ok
             if not ok:
-                self.last_error = f"HTTP {r.status_code}: {r.text[:200]}"
+                self.last_error = _friendly_tg_error(r.status_code, r.text)
             return ok
         except Exception as e:  # noqa: BLE001
-            self.last_error = str(e)
+            self.last_error = f"無法連線 Telegram: {e}"
             return False
 
     def send_async(self, text: str):
@@ -104,3 +124,23 @@ class Notifier:
         if self.store:
             self.store.insert_signal(symbol, "SELL", price=price, pnl=pnl_pct,
                                      flags=flags or {}, note=reason)
+
+
+def send_test(bot_token: str, chat_id: str) -> tuple[bool, str]:
+    """用給定(或已儲存)token/chat 直接發送測試訊息。
+    不受「啟用推送」開關限制 — 方便先測通再儲存。"""
+    bot_token = (bot_token or "").strip()
+    chat_id = str(chat_id or "").strip()
+    if not bot_token or not chat_id:
+        return False, "請先填 Bot Token 與 Chat ID"
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            json={"chat_id": chat_id,
+                  "text": "✅ <b>港股即日買賣系統</b> Telegram 測試成功",
+                  "parse_mode": "HTML"}, timeout=12)
+        if r.ok:
+            return True, "測試訊息已送出 — 請到 Telegram 查看"
+        return False, _friendly_tg_error(r.status_code, r.text)
+    except Exception as e:  # noqa: BLE001
+        return False, f"無法連線 Telegram: {e}"
