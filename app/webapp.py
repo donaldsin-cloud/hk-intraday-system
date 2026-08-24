@@ -420,6 +420,11 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
                     if syms:
                         g[k] = syms
                     continue
+                if k == "required_flags":
+                    g[k] = [str(x) for x in (v or [])
+                            if str(x) in ("vol", "trend", "bb", "fib",
+                                          "rsi", "macd")]
+                    continue
                 g[k] = _coerce_like(g.get(k), v)
         ctx.cfg.apply_raw(raw)
         ctx.cfg.save()

@@ -275,11 +275,46 @@ def test_strategy_type_coercion():
     return "字串數值自動轉型 + warmup_bars 可計算 ✓"
 
 
+def test_custom_required_flags():
+    """自定必中指標組合:required_flags 優先;掃描與回測遮罩一致。"""
+    import numpy as np
+    from .indicators import buy_signal
+    from .strategy import StrategyParams
+
+    p = StrategyParams(require_all=False, min_score=1,
+                       required_flags=["vol", "macd"])
+    # 只中 vol → 不買(缺 macd)
+    assert not buy_signal({"vol": True, "macd": False}, 1, p)
+    # vol+macd 都中 → 買(即使 score=2 < min_score=1 無關,優先規則生效)
+    assert buy_signal({"vol": True, "macd": True, "rsi": False}, 2, p)
+    # 清空 required_flags → 回退 min_score 規則
+    p2 = StrategyParams(require_all=False, min_score=2, required_flags=[])
+    assert buy_signal({"vol": True, "macd": True}, 2, p2)
+    assert not buy_signal({"vol": True, "macd": False}, 1, p2)
+    # 非法鍵自動過濾 + 字串化清單容錯
+    p3 = StrategyParams.from_dict({"required_flags": ["vol", "hack", 123]})
+    assert p3.required_flags == ["vol"]
+    p4 = StrategyParams.from_dict({"required_flags": "['vol','rsi']"})
+    assert sorted(p4.required_flags) == ["rsi", "vol"]
+    # 回測遮罩同樣吃 required_flags(用極小合成序列)
+    from . import backtest as bt
+    n = 80
+    idx = pd.date_range("2025-01-01", periods=n, freq="D")
+    close = pd.Series(np.linspace(10, 20, n), index=idx)
+    df = pd.DataFrame({"open": close, "high": close * 1.01,
+                       "low": close * 0.99, "close": close,
+                       "volume": np.linspace(1e6, 2e6, n)}, index=idx)
+    pre = bt.precompute(df, p)
+    mask = bt.eval_masks(pre, p)
+    assert mask.dtype == bool and len(mask) == n
+    return "required_flags 優先判定 + 回測遮罩整合 ✓"
+
+
 def run_all() -> int:
     tests = [test_indicator_math, test_markets, test_ai,
              test_six_condition_trigger,
              test_backtest_pipeline, test_store_roundtrip, test_messages,
-             test_strategy_type_coercion]
+             test_strategy_type_coercion, test_custom_required_flags]
     print("=" * 62)
     print("港股即日買賣系統 — 自我測試")
     print("=" * 62)

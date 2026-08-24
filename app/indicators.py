@@ -201,8 +201,19 @@ def evaluate(df: pd.DataFrame, p) -> dict:
 
     score = sum(1 for k in FLAG_KEYS if res["flags"][k])
     res["score"] = score
-    res["buy"] = (score == len(FLAG_KEYS)) if p.require_all else (score >= p.min_score)
+    res["buy"] = buy_signal(res["flags"], score, p)
     res["label"] = {FLAG_LABELS[k]: res["flags"][k] for k in FLAG_KEYS}
     res["ready"] = True
     res["close"] = _f(c.iloc[-1])
     return res
+
+
+def buy_signal(flags: dict, score: int, p) -> bool:
+    """統一買入判定:
+    1) p.required_flags 非空 → 所選指標「全部成立」才買(自定組合,優先)
+    2) 否則 require_all(六項全中)或 score ≥ min_score"""
+    req = [k for k in (getattr(p, "required_flags", None) or [])
+           if k in FLAG_KEYS]
+    if req:
+        return all(bool(flags.get(k, False)) for k in req)
+    return (score == len(FLAG_KEYS)) if p.require_all else (score >= p.min_score)

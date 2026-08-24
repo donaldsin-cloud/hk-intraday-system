@@ -76,7 +76,13 @@ def eval_masks(pre: dict, p) -> np.ndarray:
     rsi = (pre["rsi"] >= p.rsi_lo) & (pre["rsi"] <= p.rsi_hi) & pre["rsi_up"]
     bb = pre["had_squeeze"] & pre["bb_width_up"] & pre["above_mid"]
     core = (vol & pre["up_bar"] & pre["trend"] & bb & fib & rsi & pre["macd_ok"])
-    if p.require_all:
+    req = [k for k in (getattr(p, "required_flags", None) or [])
+           if k in ("vol", "trend", "bb", "fib", "rsi", "macd")]
+    if req:                                # 自定必中組合(優先)
+        fmap = {"vol": vol & pre["up_bar"], "trend": pre["trend"], "bb": bb,
+                "fib": fib, "rsi": rsi, "macd": pre["macd_ok"]}
+        mask = np.logical_and.reduce([fmap[k] for k in req])
+    elif p.require_all:
         mask = core
     else:
         parts = [vol & pre["up_bar"], pre["trend"], bb, fib, rsi, pre["macd_ok"]]

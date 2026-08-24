@@ -50,14 +50,29 @@ class StrategyParams:
     # 觸發方式
     require_all: bool = True
     min_score: int = 5
+    # 自定必中指標組合(非空時優先於 require_all/min_score):
+    # 勾選的指標全部成立才買入。合法鍵:vol/trend/bb/fib/rsi/macd
+    required_flags: list = field(default_factory=list)
+
+    _VALID_FLAGS = ("vol", "trend", "bb", "fib", "rsi", "macd")
 
     @classmethod
     def from_dict(cls, d: dict | None) -> "StrategyParams":
         names = {f.name for f in fields(cls)}
         hints = typing.get_type_hints(cls)
         d = d or {}
-        return cls(**{k: _cast(v, hints.get(k)) for k, v in d.items()
-                      if k in names})
+        out = {}
+        for k, v in d.items():
+            if k not in names:
+                continue
+            if k == "required_flags":
+                if isinstance(v, str):          # 容錯:曾被字串化的清單
+                    v = [x.strip("\"' []") for x in v.split(",")] if v else []
+                out[k] = [str(x) for x in (v or [])
+                          if str(x) in cls._VALID_FLAGS]
+                continue
+            out[k] = _cast(v, hints.get(k))
+        return cls(**out)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -460,7 +460,10 @@ Object.assign(EN,{"🎯 目標+5%":"🎯 +5% target hit","🛑 止損":"🛑 Sto
 "分析中…":"Analyzing…","柱 ":"Hist ","分位 ":"pctile ","❌":"❌",
 "即時監察數量上限(0=全部)":"Live scan cap (0 = all)","掃描設定":"Scanning",
 "Telegram 未啟用":"Telegram disabled","測試 Telegram":"Test Telegram",
-"請先填 Bot Token 與 Chat ID":"Fill Bot Token & Chat ID first","修正後可先測試,成功再按儲存":"fix it, test again, then Save"});
+"請先填 Bot Token 與 Chat ID":"Fill Bot Token & Chat ID first","修正後可先測試,成功再按儲存":"fix it, test again, then Save",
+"★ 自定必中指標組合":"★ Custom Required Indicators",
+"勾選任何一項 = 這幾項「全部成立」才買入(優先於上方規則)。全部不勾 = 回到上方 require_all / min_score 規則。回測與每日調叟同樣採用此組合。":"Tick any subset = BUY only when ALL ticked indicators are met (overrides rules above). Tick none = fall back to require_all / min_score. Backtests & daily retune use the same set.",
+"自定必中組合":"Custom set","全部成立":"all met"});
 
 /* ---- canvas equity chart(離線可用,不依賴CDN)---- */
 function drawEquity(cv,pts){
@@ -544,7 +547,9 @@ function renderAnalyze(d){
       <div class="kpi"><div class="k">${t('目標')}(+${tr.take_profit_pct||5}%)</div><div class="v pos">${fmt((d.close||0)*(1+(tr.take_profit_pct||5)/100))}</div></div>
     </div>
     <div class="grid">${flags}</div>
-    ${d.buy?`<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 ${t('符合買入條件')}(≥${META?.trade_rules?tr_min():4} ${t('項成立')})</p>`:''}
+    ${d.buy?(()=>{const rf=(META?.strategy?.required_flags)||[];
+      if(rf.length)return `<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🎯 ${t('自定必中組合')}: ${rf.map(k=>esc(t(FZH[k]))).join(' + ')} — ${t('全部成立')}</p>`;
+      return `<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 ${t('符合買入條件')}(≥${META?.trade_rules?tr_min():4} ${t('項成立')})</p>`;})():''}
     <div id="chartBox" style="margin-top:10px"></div>
     <div id="flowBox" style="margin-top:6px"></div>
   </div>`;
@@ -874,6 +879,15 @@ async function renderSettings(){
     }
     html+='</div>';
   }
+  // ★ 自定必中指標組合(required_flags)
+  const RF=(CFGFULL.strategy&&CFGFULL.strategy.required_flags)||[];
+  html+=`<h2 style="margin-top:14px">${t('★ 自定必中指標組合')}</h2>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    ${Object.entries(FZH).map(([k,zh])=>`
+      <label class="k" style="display:flex;gap:6px;align-items:center;font-weight:normal">
+        <input type="checkbox" class="rfchk" data-k="${k}" ${RF.includes(k)?'checked':''}> ${esc(t(zh))}</label>`).join('')}
+  </div>
+  <p class="note">${t('勾選任何一項 = 這幾項「全部成立」才買入(優先於上方規則)。全部不勾 = 回到上方 require_all / min_score 規則。回測與每日調叟同樣採用此組合。')}</p>`;
   // 監察名單
   html+=`<h2 style="margin-top:14px">${t('監察名單(每行一個代號)')}</h2><div class="grid">
     <div class="kpi"><div class="k">${t('🇭🇰 港股(如 0700.HK)')}</div>
@@ -990,6 +1004,8 @@ function collectSettings(){
   const us=($('#pf_wl_us')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
   if(hk.length)out.scanner=out.scanner||{},out.scanner.watchlist=hk;
   if(us.length)out.scanner=out.scanner||{},out.scanner.watchlist_us=us;
+  const rf=[...document.querySelectorAll('.rfchk')].filter(c=>c.checked).map(c=>c.dataset.k);
+  if(document.querySelector('.rfchk')){out.strategy=out.strategy||{};out.strategy.required_flags=rf}
   return out;
 }
 async function saveSettings(){
