@@ -159,6 +159,128 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
                 "total_return_pct": m.get("total_return_pct"),
                 "max_drawdown_pct": m.get("max_drawdown_pct")}
 
+    @app.get("/api/chart/{symbol}")
+    def chart(symbol: str, days: int = 260):
+        """日K + MA50/100/200 + RSI + MACD + 回測買賣點(分析與監察共用)。"""
+        import pandas as pd
+        from . import indicators as ind
+        from . import backtest as btmod
+        if not ctx.feed:
+            raise HTTPException(503, "數據源不可用")
+        sym = normalize_symbol(symbol)
+        try:
+            df = ctx.feed.history_daily(sym, 5)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(502, f"取得 {sym} 日K失敗: {e}")
+        if len(df) < 60:
+            raise HTTPException(400, f"{sym} 日K不足({len(df)}根)")
+        days = max(60, min(int(days), 1000))
+        view = df.tail(days)
+        c = view["close"]
+
+        def _ser(s):
+            return [None if pd.isna(v) else round(float(v), 4) for v in s]
+
+        rsi = ind.wilder_rsi(c, 14)
+        dif, dea, hist = ind.macd_parts(c)
+        p = ctx.cfg.active_strategy()
+        flags = ind.evaluate(df, p)
+        trades: list = []
+        if len(df) >= 400:
+            rules = ctx.cfg.trade_rules
+            try:
+                pre = btmod.precompute(df, p)
+                mask = btmod.eval_masks(pre, p)
+                trs = btmod.simulate(pre, mask, rules.take_profit_pct,
+                                     rules.stop_loss_pct,
+                                     ctx.cfg.backtest_cost_pct)
+                trades = trs[-200:]
+            except Exception:  # noqa: BLE001
+                trades = []
+        return {"symbol": sym, "market": market_of(sym),
+                "dates": [str(d)[:10] for d in view.index],
+                "o": _ser(view["open"]), "h": _ser(view["high"]),
+                "l": _ser(view["low"]), "c": _ser(view["close"]),
+                "v": [int(x) for x in view["volume"].fillna(0)],
+                "ma50": _ser(c.rolling(50).mean()),
+                "ma100": _ser(c.rolling(100).mean()),
+                "ma200": _ser(c.rolling(200).mean()),
+                "rsi": _ser(rsi), "dif": _ser(dif),
+                "dea": _ser(dea), "hist": _ser(hist),
+                "score": flags.get("score"),
+                "flags": {k: bool(v) for k, v in
+                          (flags.get("flags") or {}).items()},
+                "trades": trades}
+
+    @app.get("/api/flow/{symbol}")
+    def flow(symbol: str):
+        """沽空比率 / 借貨利息 / 大單比率 / 期權 — 免費源盡力抓,取不到如實標示。"""
+        sym = normalize_symbol(symbol)
+        mk = market_of(sym)
+        items = []
+
+        def add(k, label_zh, value, fmt, note=""):
+            items.append({"k": k, "label_zh": label_zh, "value": value,
+                          "fmt": fmt, "note": note})
+
+        sr, note = None, ""
+        if mk == "us":
+            try:
+                import yfinance as yf
+                info = yf.Ticker(sym).info or {}
+                sr = info.get("shortPercentOfFloat",
+                              info.get("sharesShortPriorMonth"))
+                if sr is None:
+                    note = "來源無此欄位"
+            except Exception as e:  # noqa: BLE001
+                note = f"抓取失敗({type(e).__name__})"
+        else:
+            note = "港股無免費公開 API(HKEX 沽空日報)"
+        add("short", "沽空佔流通比", sr, "pct2", note)
+
+        add("borrow", "借貨利息(年化)", None, "pct2",
+            "無免費公開來源 — 請參考券商融資利率")
+
+        br, bnote = None, ""
+        try:
+            bars = ctx.feed.get_bars(sym, "1m", 120) if ctx.feed else None
+            if bars is not None and len(bars) >= 30:
+                v = bars["volume"].astype(float)
+                if float(v.mean()) > 0:
+                    big = v[v >= 2.0 * float(v.mean())].sum()
+                    br = round(float(big) / float(v.sum()) * 100.0, 1)
+                    bnote = "分鐘量 ≥2×均值 佔比(近似大單)"
+        except Exception:  # noqa: BLE001
+            bnote = "休市或分K不可用"
+        add("bigorder", "大單比率(近似)", br, "pct1", bnote)
+
+        pc, iv, onote = None, None, ""
+        if mk == "us":
+            try:
+                import yfinance as yf
+                tk = yf.Ticker(sym)
+                exps = list(tk.options or [])
+                if exps:
+                    ch = tk.option_chain(exps[0])
+                    cv = float((ch.calls["volume"]).fillna(0).sum())
+                    pv = float((ch.puts["volume"]).fillna(0).sum())
+                    pc = round(pv / cv, 2) if cv > 0 else None
+                    ivs = []
+                    for dfe in (ch.calls, ch.puts):
+                        s = dfe.dropna(subset=["impliedVolatility"])
+                        if len(s):
+                            ivs.append(float(s["impliedVolatility"].median()))
+                    if ivs:
+                        iv = round(sum(ivs) / len(ivs) * 100.0, 1)
+                    onote = f"到期 {exps[0]}"
+            except Exception as e:  # noqa: BLE001
+                onote = f"期權抓取失敗({type(e).__name__})"
+        else:
+            onote = "港股期權鏈無免費公開 API"
+        add("pcr", "期權 Put/Call 量比", pc, "num2", onote)
+        add("iv", "期權平均 IV", iv, "pct1", "")
+        return {"symbol": sym, "market": mk, "items": items}
+
     @app.post("/api/scan-now")
     def scan_now():
         if not ctx.scanner:

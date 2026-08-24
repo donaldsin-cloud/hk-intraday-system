@@ -355,7 +355,7 @@ async function loadLive(){
       if(r.buy)tr.className='buy-row';
       tr.title=metricTip(r.metrics);
       tr.innerHTML=`<td>${r.market==='us'?'🇺🇸':'🇭🇰'}</td>
-        <td class="mono"><b>${esc(r.symbol)}</b></td>
+        <td class="mono"><b><a href="#" style="color:inherit" onclick="openCx('${esc(r.symbol)}');return false">${esc(r.symbol)}</a></b></td>
         <td>${esc(r.name)}</td>
         <td class="mono">${fmt(r.price)}</td>
         <td class="mono">${r.pnl!=null?pct(r.pnl):'-'}</td>
@@ -537,10 +537,132 @@ function renderAnalyze(d){
     </div>
     <div class="grid">${flags}</div>
     ${d.buy?`<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 ${t('符合買入條件')}(≥${META?.trade_rules?tr_min():4} ${t('項成立')})</p>`:''}
+    <div id="chartBox" style="margin-top:10px"></div>
+    <div id="flowBox" style="margin-top:6px"></div>
   </div>`;
+  loadChart(d.symbol);
 }
 function tr_min(){return META?.strategy?.min_score??4}
 function ctx_rules(){return META?.trade_rules||{take_profit_pct:5,stop_loss_pct:3}}
+
+/* ---- 📈 技術圖表(MA/RSI/MACD/買賣點)+ 市場微觀 ---- */
+Object.assign(EN,{"技術圖表":"Technical Chart","回測買賣點":"Backtest markers",
+"沽空佔流通比":"Short % of float","借貨利息(年化)":"Borrow rate (ann.)",
+"大單比率(近似)":"Big-order ratio (approx.)","期權 Put/Call 量比":"Options Put/Call volume",
+"期權平均 IV":"Avg implied vol.","載入中…":"Loading…"});
+async function loadChart(sym){
+  const box=$('#chartBox');if(!box)return;
+  box.innerHTML=`<div class="empty">${t('載入中…')}</div>`;
+  try{
+    const r=await api('/api/chart/'+encodeURIComponent(sym)+'?days=260');
+    const d=await r.json();
+    if(d.detail){box.innerHTML=`<div class="empty">❌ ${esc(d.detail)}</div>`;return;}
+    const fl=d.flags||{};
+    box.innerHTML=`<div class="card">
+      <h2>📈 ${t('技術圖表')} · ${esc(d.symbol)}
+        <span class="score ${scoreCls(d.score)}">${d.score??'-'}/6</span></h2>
+      <canvas id="stkCv" style="width:100%;height:430px;display:block"></canvas></div>`;
+    drawStockChart($('#stkCv'),d);
+  }catch(e){box.innerHTML=`<div class="empty">❌ ${esc(String(e))}</div>`}
+}
+function plotLine(x,arr,X,Y,color,w){
+  x.strokeStyle=color;x.lineWidth=w;x.beginPath();let pen=false;
+  for(let i=0;i<arr.length;i++){
+    const v=arr[i];
+    if(v==null){pen=false;continue}
+    const px=X(i),py=Y(v);
+    if(!pen){x.moveTo(px,py);pen=true}else x.lineTo(px,py);
+  }
+  x.stroke();
+}
+function drawStockChart(cv,D){
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const x=cv.getContext('2d');x.scale(dpr,dpr);
+  x.font='11px system-ui';x.textBaseline='middle';
+  const padL=6,padR=56,padT=20,gap=12;
+  const innerH=H-padT-2*gap-14;
+  const hMain=innerH*0.58,hRsi=innerH*0.18,hMacd=innerH*0.24;
+  const n=D.dates.length;if(n<2)return;
+  const X=i=>padL+(W-padL-padR)*(i/(n-1));
+  const css=getComputedStyle(document.documentElement);
+  const col=t=>css.getPropertyValue(t).trim()||'#888';
+  /* --- 主圖 --- */
+  let lo=Infinity,hi=-Infinity;
+  for(let i=0;i<n;i++){[D.l[i],D.h[i]].forEach(v=>{if(v!=null){if(v<lo)lo=v;if(v>hi)hi=v}})};
+  ['ma50','ma100','ma200'].forEach(k=>D[k].forEach(v=>{if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}}));
+  if(!isFinite(lo)){lo=0;hi=1}
+  const pad=(hi-lo)*0.05;lo-=pad;hi+=pad;
+  const Y=v=>padT+hMain*(1-(v-lo)/((hi-lo)||1));
+  x.clearRect(0,0,W,H);
+  plotLine(x,D.c,X,Y,col('--fg')||'#e8e8e8',1.7);
+  plotLine(x,D.ma50,X,Y,'#f6c945',1.1);
+  plotLine(x,D.ma100,X,Y,'#4fc3f7',1.1);
+  plotLine(x,D.ma200,X,Y,'#e57373',1.1);
+  // 圖例
+  x.fillStyle='#f6c945';x.fillText('MA50',padL,padT-9);
+  x.fillStyle='#4fc3f7';x.fillText('MA100',padL+38,padT-9);
+  x.fillStyle='#e57373';x.fillText('MA200',padL+80,padT-9);
+  x.fillStyle=col('--dim');x.fillText(D.dates[n-1]+'  '+fmt(D.c[n-1]),W-padR+4,padT-9);
+  // 右軸價格刻度
+  x.fillStyle=col('--dim');
+  for(let g=0;g<=4;g++){const v=lo+(hi-lo)*g/4;x.fillText(fmt(v),W-padR+4,Y(v))}
+  // 買賣點
+  const tmap={};(D.trades||[]).forEach(tr=>{tmap[tr.date]=tr});
+  for(let i=0;i<n;i++){
+    const tr=tmap[D.dates[i]];if(!tr)continue;
+    if(tr.entry!=null){const py=Y(tr.entry)+10;
+      x.fillStyle='#26a69a';x.beginPath();x.moveTo(X(i),py-7);x.lineTo(X(i)-5,py);x.lineTo(X(i)+5,py);x.closePath();x.fill()}
+    if(tr.exit!=null){const py=Y(tr.exit)-10;
+      x.fillStyle='#ef5350';x.beginPath();x.moveTo(X(i),py+7);x.lineTo(X(i)-5,py);x.lineTo(X(i)+5,py);x.closePath();x.fill()}
+  }
+  /* --- RSI --- */
+  const yR0=padT+hMain+gap;
+  const YR=v=>yR0+hRsi*(1-v/100);
+  x.strokeStyle=col('--line');x.strokeRect(padL,yR0,W-padL-padR,hRsi);
+  [30,70].forEach(g=>{x.strokeStyle='rgba(150,150,150,.35)';x.setLineDash([3,3]);
+    x.beginPath();x.moveTo(padL,YR(g));x.lineTo(W-padR,YR(g));x.stroke();x.setLineDash([])});
+  plotLine(x,D.rsi,X,YR,'#b388ff',1.2);
+  x.fillStyle='#b388ff';x.fillText('RSI '+(D.rsi[n-1]!=null?fmt(D.rsi[n-1],1):'-'),W-padR+4,yR0+hRsi/2);
+  /* --- MACD --- */
+  const yM0=yR0+hRsi+gap;
+  let mAbs=0;['hist','dif','dea'].forEach(k=>D[k].forEach(v=>{if(v!=null)mAbs=Math.max(mAbs,Math.abs(v))}));
+  mAbs=mAbs||1;
+  const YM=v=>yM0+hMacd*(1-(v/mAbs*0.9+0.9)/1.8);   // 對稱 ±
+  x.strokeStyle=col('--line');x.strokeRect(padL,yM0,W-padL-padR,hMacd);
+  x.save();x.strokeStyle='rgba(150,150,150,.35)';x.setLineDash([3,3]);
+  x.beginPath();x.moveTo(padL,YM(0));x.lineTo(W-padR,YM(0));x.stroke();x.restore();
+  const bw=Math.max(1,(W-padL-padR)/n-1);
+  for(let i=0;i<n;i++){const v=D.hist[i];if(v==null)continue;
+    x.fillStyle=v>=0?'rgba(38,166,154,.75)':'rgba(239,83,80,.75)';
+    const y0=YM(0),y1=YM(v);x.fillRect(X(i)-bw/2,Math.min(y0,y1),bw,Math.abs(y1-y0)||1)}
+  plotLine(x,D.dif,X,YM,'#ffb74d',1.1);
+  plotLine(x,D.dea,X,YM,'#64b5f6',1.1);
+  x.fillStyle='#ffb74d';x.fillText('MACD',W-padR+4,yM0+8);
+  /* --- X 軸日期 --- */
+  x.fillStyle=col('--dim');
+  for(let g=0;g<6;g++){const i=Math.floor((n-1)*g/5);x.fillText(D.dates[i].slice(5),X(i)-14,H-4)}
+}
+async function loadFlow(sym){
+  const box=$('#flowBox');if(!box)return;
+  try{
+    const r=await api('/api/flow/'+encodeURIComponent(sym));
+    const d=await r.json();
+    if(d.detail||!d.items)return;
+    const FMT={pct1:v=>v==null?'—':v+'%',pct2:v=>v==null?'—':(v<=1?v*100:v).toFixed(2)+'%',
+               num2:v=>v==null?'—':fmt(v,2)};
+    box.innerHTML='<div class="grid">'+d.items.map(it=>{
+      const val=FMT[it.fmt]?FMT[it.fmt](it.value):String(it.value??'—');
+      return `<div class="kpi"><div class="k">${t(it.label_zh)}</div>
+        <div class="v">${val}</div>${it.note?`<div class="note" style="font-size:11px">${esc(it.note)}</div>`:''}</div>`;
+    }).join('')+'</div>';
+  }catch(e){}
+}
+function openCx(sym){
+  $('#cxSym').value=sym;
+  document.querySelector('.tab[data-t="cx"]')?.click();
+  doAnalyze();
+}
 async function doSingleBT(){
   const sym=$('#cxSym').value.trim();if(!sym)return;
   $('#cxResult').insertAdjacentHTML('afterbegin',
