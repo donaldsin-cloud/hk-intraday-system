@@ -310,11 +310,32 @@ def test_custom_required_flags():
     return "required_flags 優先判定 + 回測遮罩整合 ✓"
 
 
+def test_screener_scoring():
+    """開市前選股:候選池充足 + 評分函數對「放量近高上攻」給高分。"""
+    from .screener import Screener
+    from .universe import HK_POOL, US_POOL
+    assert len(HK_POOL) >= 80 and len(US_POOL) >= 120
+    n = 200
+    idx = pd.date_range("2025-01-01", periods=n, freq="D")
+    close = np.linspace(100, 140, n)
+    close[-1] = 150                     # 末段創近高
+    vol = np.full(n, 1e6)
+    vol[-1] = 5e6                       # 放量
+    df = pd.DataFrame({"open": close * 0.99, "high": close * 1.02,
+                       "low": close * 0.98, "close": close,
+                       "volume": vol}, index=idx)
+    row = Screener.score_row(df)
+    assert row is not None and row["score"] > 50
+    assert row["vol_ratio"] >= 4.5 and row["near_high_pct"] > 0
+    return "選股評分 + 候選池規模 ✓"
+
+
 def run_all() -> int:
     tests = [test_indicator_math, test_markets, test_ai,
              test_six_condition_trigger,
              test_backtest_pipeline, test_store_roundtrip, test_messages,
-             test_strategy_type_coercion, test_custom_required_flags]
+             test_strategy_type_coercion, test_custom_required_flags,
+             test_screener_scoring]
     print("=" * 62)
     print("港股即日買賣系統 — 自我測試")
     print("=" * 62)

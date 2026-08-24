@@ -152,6 +152,17 @@ class Config:
         if os.environ.get("HK_BASELINE", "").strip().lower() in ("0", "false", "off"):
             self.baseline_on_start = False
 
+        # 開市前自動選股(以香港時間排程)
+        sc = raw.get("screener") or {}
+        self.screener_enabled = bool(sc.get("enabled", False))
+        self.screener_hk_time = str(sc.get("hk_time", "08:30"))
+        self.screener_us_time = str(sc.get("us_time", "20:30"))
+        try:
+            self.screener_top_n = max(5, min(int(sc.get("top_n", 100)), 300))
+        except (TypeError, ValueError):
+            self.screener_top_n = 100
+        self.screener_auto_apply = bool(sc.get("auto_apply", True))
+
         wb = raw.get("web") or {}
         self.web_host = wb.get("host", "0.0.0.0")
         # 雲端平台以 PORT 環境變數指定對外埠(Render=10000、HF Spaces 用 Dockerfile 內預設)

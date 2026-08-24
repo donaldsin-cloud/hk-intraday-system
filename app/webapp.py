@@ -34,6 +34,7 @@ class AppCtx:
     notifier: Notifier = None
     scanner: Scanner = None
     retuner: Retuner = None
+    screener = None
 
 
 def create_app(cfg: Config | None = None, autostart: bool | None = None) -> FastAPI:
@@ -57,6 +58,10 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
             ctx.scanner.start()
             ctx.retuner = Retuner(ctx.cfg, ctx.feed, ctx.store, ctx.notifier, log=log.info)
             ctx.retuner.start()
+            from .screener import Screener
+            ctx.screener = Screener(ctx.cfg, ctx.feed, log=log.info,
+                                    notifier=ctx.notifier)
+            ctx.screener.start()
             log.info(f"掃描器+排程器已啟動 feed={getattr(ctx.feed,'name','?')}")
         yield
         if ctx.scanner:
@@ -352,6 +357,23 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
         ok, err = ctx.notifier.test()
         return {"ok": ok, "error": err}
 
+    @app.get("/api/screener/latest")
+    def screener_latest():
+        if not ctx.screener:
+            return {"hk": {"items": []}, "us": {"items": []}}
+        return ctx.screener.latest()
+
+    @app.post("/api/screener/run-now")
+    def screener_run(body: dict | None = None):
+        if not ctx.screener:
+            raise HTTPException(503, "選股器未啟動(數據源不可用?)")
+        market = str((body or {}).get("market") or "hk")
+        if market not in ("hk", "us"):
+            raise HTTPException(400, "market 需為 hk 或 us")
+        threading.Thread(target=ctx.screener.run_screen, args=(market,),
+                         daemon=True).start()
+        return {"ok": True, "market": market}
+
     # ---------------- 網頁設定(所有參數) ----------------
     @app.get("/api/config/full")
     def get_full_config():
@@ -360,8 +382,12 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
             "strategy": c.strategy.to_dict(),
             "trade_rules": c.trade_rules.__dict__,
             "scanner": {"interval_sec": c.scan_interval, "bar_size": c.bar_size,
-                        "lookback_bars": c.lookback,
+                        "lookback_bars": c.lookback, "max_symbols": c.max_symbols,
                         "watchlist": c.watchlist, "watchlist_us": c.watchlist_us},
+            "screener": {"enabled": c.screener_enabled, "hk_time": c.screener_hk_time,
+                         "us_time": c.screener_us_time,
+                         "top_n": c.screener_top_n,
+                         "auto_apply": c.screener_auto_apply},
             "backtest": {"years": c.backtest_years, "cost_pct": c.backtest_cost_pct},
             "optimizer": {"min_trades": c.opt_min_trades,
                           "train_ratio": c.opt_train_ratio},
