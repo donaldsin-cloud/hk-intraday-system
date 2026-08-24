@@ -374,7 +374,9 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
         web: dict | None = None
 
     def _coerce_like(old, new):
-        """按舊值型別轉換新值(bool/int/float/str)。"""
+        """按舊值型別轉換新值;舊值缺失時保留 JSON 原生型別(不強制字串化)。"""
+        if old is None:
+            return new
         if isinstance(old, bool) or isinstance(old, int) and not isinstance(old, bool) \
                 or isinstance(old, float):
             try:

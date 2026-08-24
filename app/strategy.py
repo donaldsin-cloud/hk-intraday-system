@@ -1,7 +1,24 @@
 """策略參數(六大入市指標 + 即日買賣規則的數值化定義)"""
 from __future__ import annotations
 
+import typing
 from dataclasses import dataclass, field, fields, asdict
+
+
+def _cast(v, ann):
+    """依欄位註解強制轉型 — 防 config.yaml/best_params.json 混入字串數值。"""
+    if ann is bool:
+        if isinstance(v, bool):
+            return v
+        return str(v).strip().lower() in ("1", "true", "yes", "on", "是")
+    try:
+        if ann is int and not isinstance(v, bool):
+            return int(float(str(v).strip()))
+        if ann is float and not isinstance(v, bool):
+            return float(str(v).strip())
+    except (TypeError, ValueError):
+        return 0 if ann is int else 0.0
+    return v
 
 
 @dataclass
@@ -37,14 +54,16 @@ class StrategyParams:
     @classmethod
     def from_dict(cls, d: dict | None) -> "StrategyParams":
         names = {f.name for f in fields(cls)}
+        hints = typing.get_type_hints(cls)
         d = d or {}
-        return cls(**{k: v for k, v in d.items() if k in names})
+        return cls(**{k: _cast(v, hints.get(k)) for k, v in d.items()
+                      if k in names})
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     def overlay(self, overrides: dict) -> "StrategyParams":
-        """以調叟產生的覆蓋值產生新參數(不修改自身)。"""
+        """以調叟產生的覆蓋值產生新參數(不修改自身);值會強制轉型。"""
         merged = self.to_dict()
         names = {f.name for f in fields(self)}
         merged.update({k: v for k, v in (overrides or {}).items() if k in names})
@@ -61,4 +80,6 @@ class TradeRules:
     @classmethod
     def from_dict(cls, d: dict | None) -> "TradeRules":
         names = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in (d or {}).items() if k in names})
+        hints = typing.get_type_hints(cls)
+        return cls(**{k: _cast(v, hints.get(k)) for k, v in (d or {}).items()
+                      if k in names})

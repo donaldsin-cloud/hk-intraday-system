@@ -253,10 +253,33 @@ def test_ai():
     return "提示詞/設定管線/中文錯誤訊息 ✓"
 
 
+def test_strategy_type_coercion():
+    """回歸測試:字串數值(雲端儲存路徑曾產生)必須被強制轉型,否則
+    warmup_bars 的 macd_slow + macd_signal 會爆 str+int TypeError。"""
+    from .strategy import StrategyParams, TradeRules
+    p = StrategyParams.from_dict({"macd_slow": "26", "macd_signal": 9,
+                                  "min_score": "4", "require_all": "false",
+                                  "vol_expand_ratio": "2.5", "rsi_lo": "45"})
+    assert isinstance(p.macd_slow, int) and p.macd_slow == 26
+    assert isinstance(p.min_score, int) and p.min_score == 4
+    assert p.require_all is False
+    assert isinstance(p.vol_expand_ratio, float) and p.vol_expand_ratio == 2.5
+    # overlay(每日調叟)同樣要轉型
+    q = p.overlay({"ema_slow": "120", "bb_k": "3"})
+    assert q.ema_slow == 120 and isinstance(q.bb_k, float)
+    # warmup_bars 現在應能正常計算(不再 str+int)
+    from .indicators import warmup_bars
+    assert warmup_bars(q) > 0
+    tr = TradeRules.from_dict({"take_profit_pct": "5", "stop_loss_pct": 3})
+    assert tr.take_profit_pct == 5.0 and isinstance(tr.stop_loss_pct, float)
+    return "字串數值自動轉型 + warmup_bars 可計算 ✓"
+
+
 def run_all() -> int:
     tests = [test_indicator_math, test_markets, test_ai,
              test_six_condition_trigger,
-             test_backtest_pipeline, test_store_roundtrip, test_messages]
+             test_backtest_pipeline, test_store_roundtrip, test_messages,
+             test_strategy_type_coercion]
     print("=" * 62)
     print("港股即日買賣系統 — 自我測試")
     print("=" * 62)
