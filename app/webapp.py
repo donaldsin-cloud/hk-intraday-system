@@ -233,6 +233,8 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
                                          (c.raw.get("telegram") or {}).get("enabled")),
                          "bot_token": c.tg_token, "chat_id": c.tg_chat},
             "web": {"access_token": c.web_access_token},
+            "ai": {"providers": getattr(c, "ai_providers", []),
+                   "default": getattr(c, "ai_default", "")},
             "overlay_active": c.best_params_path.exists(),
         }
 
@@ -290,6 +292,101 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
             ctx.cfg.best_params_path.unlink()
             removed = True
         return {"ok": True, "removed": removed}
+
+    # ---------------- 🤖 AI 分析 ----------------
+    class AIProviderBody(BaseModel):
+        name: str
+        base_url: str
+        api_key: str = ""
+        model: str
+
+    class AISettingsBody(BaseModel):
+        providers: list[AIProviderBody]
+        default: str = ""
+
+    @app.get("/api/ai/providers")
+    def ai_providers_list():
+        provs = [{"name": p.get("name"), "base_url": p.get("base_url"),
+                  "model": p.get("model"), "has_key": bool(p.get("api_key"))}
+                 for p in getattr(ctx.cfg, "ai_providers", [])]
+        return {"providers": provs,
+                "default": getattr(ctx.cfg, "ai_default", ""),
+                "configured": bool(provs)}
+
+    @app.post("/api/ai/settings")
+    def ai_save(body: AISettingsBody):
+        provs = [p.model_dump() for p in body.providers if p.name.strip()]
+        names = [p["name"] for p in provs]
+        if len(names) != len(set(names)):
+            raise HTTPException(400, "供應商名稱重複")
+        dflt = body.default if body.default in names else (names[0] if names else "")
+        raw = ctx.cfg.raw
+        raw["ai"] = {"providers": provs, "default": dflt}
+        ctx.cfg.apply_raw(raw)
+        ctx.cfg.save()
+        return {"ok": True, "default": dflt, "count": len(provs)}
+
+    class AITestBody(BaseModel):
+        name: str
+
+    @app.post("/api/ai/test")
+    def ai_test(body: AITestBody):
+        from .ai import chat_completion
+        p = ctx.cfg.ai_provider(body.name)
+        if not p:
+            raise HTTPException(404, f"找不到 AI 供應商 {body.name}")
+        try:
+            text, dt = chat_completion(
+                p, [{"role": "user", "content": "只回覆兩個字:正常"}],
+                max_tokens=10, temperature=0)
+            return {"ok": True, "provider": p.get("name"),
+                    "model": p.get("model"), "latency_s": round(dt, 1),
+                    "reply": text[:50]}
+        except RuntimeError as e:
+            return {"ok": False, "error": str(e)}
+
+    @app.post("/api/ai/settings-test")
+    def ai_test_direct(body: AIProviderBody):
+        """測試一組(尚未儲存的)供應商設定。"""
+        from .ai import chat_completion
+        try:
+            text, dt = chat_completion(
+                body.model_dump(),
+                [{"role": "user", "content": "只回覆兩個字:正常"}],
+                max_tokens=10, temperature=0)
+            return {"ok": True, "model": body.model,
+                    "latency_s": round(dt, 1), "reply": text[:50]}
+        except RuntimeError as e:
+            return {"ok": False, "error": str(e)}
+
+    class AIAnalyzeBody(BaseModel):
+        symbol: str
+        size: str = "1m"
+        provider: str | None = None
+
+    @app.post("/api/ai/analyze")
+    def ai_analyze(body: AIAnalyzeBody):
+        """取數 → 六指標評估 → 交給指定(或預設)AI 模型解讀。"""
+        from .ai import analyze_payload
+        p = ctx.cfg.ai_provider(body.provider)
+        if not p:
+            raise HTTPException(400, "尚未設定任何 AI 供應商(請到「⚙️ 設定」新增)")
+        sym = normalize_symbol(body.symbol)
+        size = body.size if body.size in ("1m", "5m", "15m") else "1m"
+        try:
+            df = ctx.feed.get_bars(sym, size, 300) if ctx.feed else None
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(502, f"取得 {sym} K線失敗: {e}")
+        res = indicators.evaluate(df, ctx.cfg.active_strategy())
+        payload = {"symbol": sym, "market": market_of(sym), "bar_size": size,
+                   **res, "trade_rules": ctx.cfg.trade_rules.__dict__}
+        try:
+            content, dt = analyze_payload(p, payload)
+        except RuntimeError as e:
+            raise HTTPException(502, str(e))
+        return {"ok": True, "provider": p.get("name"), "model": p.get("model"),
+                "symbol": sym, "score": res.get("score"),
+                "latency_s": round(dt, 1), "content": content}
 
     @app.middleware("http")
     async def access_guard(request, call_next):  # noqa: ANN001

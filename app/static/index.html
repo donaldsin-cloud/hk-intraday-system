@@ -126,6 +126,8 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
         <option value="15m">15 分K</option>
       </select>
       <button onclick="doAnalyze()">🔍 分析</button>
+      <select id="cxAI" style="min-width:140px"><option value="">AI:未設定</option></select>
+      <button onclick="doAI()">🤖 AI 解讀</button>
       <button class="ghost" onclick="doSingleBT()">回測此股 5 年</button>
     </div>
     <p class="note">直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。
@@ -456,6 +458,46 @@ async function doSingleBT(){
   }catch(e){$('#btSpin')?.remove();alert('回測失敗:'+e)}
 }
 
+/* ---- 🤖 AI 解讀 ---- */
+let CX_LAST=null;
+async function loadAIProviders(){
+  try{
+    const d=await(await api('/api/ai/providers')).json();
+    const sel=$('#cxAI');sel.innerHTML='';
+    if(!d.configured){sel.innerHTML='<option value="">AI:未設定</option>';return;}
+    (d.providers||[]).forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.name;o.textContent='🤖 '+p.name+(p.model?(' · '+p.model):'');
+      if(p.name===d.default)o.selected=true;
+      sel.appendChild(o);
+    });
+  }catch(e){}
+}
+async function doAI(){
+  const sym=$('#cxSym').value.trim();
+  if(!sym){alert('請先輸入代號');return;}
+  $('#cxResult').insertAdjacentHTML('afterbegin',
+    '<div class="card" id="aiSpin"><div class="empty">🤖 AI 分析中…(約5-20秒)</div></div>');
+  try{
+    const r=await api('/api/ai/analyze',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol:sym,size:$('#cxSize').value,
+                           provider:$('#cxAI').value||null})});
+    const d=await r.json();
+    $('#aiSpin')?.remove();
+    if(d.detail){$('#cxResult').insertAdjacentHTML('afterbegin',
+      `<div class="card"><div class="empty">❌ ${esc(d.detail)}</div></div>`);return;}
+    renderAICard(d);
+  }catch(e){$('#aiSpin')?.remove();alert('AI 分析失敗:'+e)}
+}
+function renderAICard(d){
+  $('#cxResult').insertAdjacentHTML('afterbegin',`<div class="card">
+    <h2>🤖 AI 解讀 — ${esc(d.symbol)} <span class="note">${esc(d.provider)} · ${esc(d.model)} · ${d.latency_s}s</span>
+      <span class="score ${scoreCls(d.score)}">${d.score??'-'}/6</span></h2>
+    <div style="white-space:pre-wrap;line-height:1.75;font-size:14px">${esc(d.content)}</div>
+  </div>`);
+}
+
 /* ---- 設定分頁:所有參數 ---- */
 const SCHEMA=[
  ['strategy','六大入市指標參數',[
@@ -521,8 +563,102 @@ async function renderSettings(){
       <textarea id="pf_wl_us" rows="6" style="width:100%">${esc(CFGFULL.scanner.watchlist_us.join('\n'))}</textarea></div>
   </div>
   <p class="note">${CFGFULL.overlay_active?'⚠️ 目前「每日調叟覆蓋」生效中——基礎參數的閾值會被 best_params.json 覆蓋。想讓此頁參數完全生效請按「清除每日調叟覆蓋」。':''}</p>`;
+  // 🤖 AI 模型管理
+  html+=`<h2 style="margin-top:14px">🤖 AI 分析模型(自行加不同 model / API)</h2>
+    <div id="aiRows"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+      <select id="aiPreset">
+        <option value="">— 選供應商模板 —</option>
+        ${Object.keys(AI_PRESETS).map(k=>`<option>${k}</option>`).join('')}
+      </select>
+      <button class="ghost" onclick="aiAddRow()">＋ 新增模型</button>
+      <button onclick="aiSaveRows()">💾 儲存 AI 設定</button>
+      <span id="aiMsg" class="note"></span>
+    </div>
+    <p class="note">API Key 只存在本伺服器的 config.yaml(不入 GitHub)。設好後到
+     「🔍 自選分析」輸入代號按「🤖 AI 解讀」即可。任何 OpenAI 相容端點皆可(DeepSeek/OpenAI/Gemini/OpenRouter/Kimi/Qwen/Groq/Ollama…)。</p>`;
   $('#setForm').innerHTML=html;
+  aiRenderRows();
   $('#ovBadge').textContent=CFGFULL.overlay_active?'(目前由每日調叟覆蓋接管閾值)':'';
+}
+/* ---- 🤖 AI 模型管理 ---- */
+const AI_PRESETS={
+ 'DeepSeek':['https://api.deepseek.com/v1','deepseek-chat'],
+ 'OpenAI':['https://api.openai.com/v1','gpt-4o-mini'],
+ 'Gemini':['https://generativelanguage.googleapis.com/v1beta/openai','gemini-2.0-flash'],
+ 'OpenRouter':['https://openrouter.ai/api/v1','anthropic/claude-3.5-sonnet'],
+ 'Kimi 月之暗面':['https://api.moonshot.cn/v1','moonshot-v1-8k'],
+ '通義千問':['https://dashscope.aliyuncs.com/compatible-mode/v1','qwen-plus'],
+ 'Groq':['https://api.groq.com/openai/v1','llama-3.3-70b-versatile'],
+ 'Ollama 本機':['http://127.0.0.1:11434/v1','llama3.1']
+};
+function aiRenderRows(){
+  const list=(CFGFULL.ai&&CFGFULL.ai.providers)||[];
+  const dflt=(CFGFULL.ai&&CFGFULL.ai.default)||'';
+  const box=$('#aiRows');box.innerHTML='';
+  list.forEach((p,i)=>box.insertAdjacentHTML('beforeend',aiRowHTML(p,i,dflt)));
+  if(!list.length)box.innerHTML='<div class="empty">尚未加入任何模型 — 上方選模板再按「＋ 新增模型」</div>';
+  const ps=$('#aiPreset');ps.onchange=()=>{if(ps.value)aiAddRow()};
+}
+function aiRowHTML(p,i,dflt){
+  return `<div class="kpi" style="margin-bottom:8px">
+    <div class="grid" style="gap:6px">
+      <div><div class="k">名稱</div><input id="ain${i}" value="${esc(p.name||'')}" style="width:100%"></div>
+      <div><div class="k">Base URL(OpenAI 相容)</div><input id="aib${i}" value="${esc(p.base_url||'')}" style="width:100%"></div>
+      <div><div class="k">Model</div><input id="aim${i}" value="${esc(p.model||'')}" style="width:100%"></div>
+      <div><div class="k">API Key</div><input id="aik${i}" type="password" value="${esc(p.api_key||'')}" style="width:100%"></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+      <label class="k"><input type="radio" name="aidflt" ${p.name===dflt?'checked':''} onchange="window._aiDflt='${esc(p.name)}'"> 預設</label>
+      <button class="ghost" onclick="aiTestRow(${i})">測試連線</button>
+      <button class="ghost" onclick="aiDelRow(${i})">刪除</button>
+      <span id="ait${i}" class="note"></span>
+    </div></div>`;
+}
+function aiAddRow(){
+  const box=$('#aiRows');
+  if(box.querySelector('.empty'))box.innerHTML='';
+  const i=box.children.length;
+  const p=AI_PRESETS[$('#aiPreset').value]||['',''];
+  box.insertAdjacentHTML('beforeend',aiRowHTML(
+    {name:$('#aiPreset').value||'',base_url:p[0],model:p[1],api_key:''},i,''));
+  window._aiDflt=window._aiDflt||( $('#aiPreset').value||'' );
+  box.lastElementChild.scrollIntoView({behavior:'smooth'});
+}
+function aiDelRow(i){$(`#aiRows`).children[i]?.remove()}
+function aiCollect(){
+  const box=$('#aiRows'),out=[];
+  for(let i=0;i<box.children.length;i++){
+    const n=$('#ain'+i)?.value?.trim();
+    if(!n)continue;
+    out.push({name:n,base_url:$('#aib'+i)?.value?.trim()||'',
+              model:$('#aim'+i)?.value?.trim()||'',api_key:$('#aik'+i)?.value||''});
+  }
+  return out;
+}
+async function aiSaveRows(){
+  const provs=aiCollect();
+  $('#aiMsg').textContent='儲存中…';
+  try{
+    const dflt=(typeof window._aiDflt==='string'&&provs.some(p=>p.name===window._aiDflt))
+      ?window._aiDflt:(provs[0]?.name||'');
+    const r=await api('/api/ai/settings',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({providers:provs,default:dflt})});
+    const d=await r.json();
+    $('#aiMsg').textContent=d.ok?`✅ 已儲存 ${d.count} 個模型,預設=${d.default}`:('❌ '+(d.detail||'失敗'));
+    loadAIProviders();
+  }catch(e){$('#aiMsg').textContent='❌ '+e}
+}
+async function aiTestRow(i){
+  const el=$('#ait'+i);el.textContent='測試中…';
+  const provs=aiCollect(),p=provs[i];if(!p){el.textContent='?';return;}
+  try{
+    const r=await api('/api/ai/settings-test',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    const d=await r.json();
+    el.textContent=d.ok?`✅ ${d.model} · ${d.latency_s}s`:`❌ ${d.error}`;
+  }catch(e){el.textContent='❌ '+e}
 }
 function collectSettings(){
   const out={};
@@ -557,7 +693,7 @@ async function clearOverlay(){
 }
 
 /* ---- polling ---- */
-loadMeta();loadLive();
+loadMeta();loadLive();loadAIProviders();
 setInterval(loadLive,10000);
 setInterval(loadMeta,30000);
 setInterval(()=>{if($('#tab-sig').style.display!=='none')loadSignals()},15000);

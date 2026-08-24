@@ -156,9 +156,25 @@ class Config:
             self.web_port = int(wb.get("port", 8000))
         self.web_access_token = str(wb.get("access_token") or "")
 
+        ai = raw.get("ai") or {}
+        self.ai_providers = [dict(p) for p in (ai.get("providers") or [])
+                             if isinstance(p, dict)]
+        self.ai_default = str(ai.get("default") or "")
+
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.db_path = DATA_DIR / "app.db"
         self.best_params_path = DATA_DIR / "best_params.json"
+
+    def ai_provider(self, name: str | None = None) -> dict:
+        """取指定(或預設)的 AI 供應商設定;無設定回 {}。"""
+        provs = getattr(self, "ai_providers", []) or []
+        if not provs:
+            return {}
+        want = name or self.ai_default or (provs[0].get("name") or "")
+        for p in provs:
+            if p.get("name") == want:
+                return p
+        return provs[0]
 
     def save(self):
         """把目前 self.raw 寫回設定檔。"""

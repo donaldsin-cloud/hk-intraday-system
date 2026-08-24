@@ -213,8 +213,49 @@ def test_markets():
     return "港/美代號正規化、Futu/Yahoo 映射、時區時段 ✓"
 
 
+def test_ai():
+    """AI 模組:提示詞建構、供應商設定管線、錯誤處理。"""
+    from app.ai import SYSTEM_PROMPT, build_user_prompt, chat_completion
+    p = build_user_prompt({"symbol": "0700.HK", "market": "hk", "close": 300.5,
+                           "score": 4, "flags": {"vol": True},
+                           "metrics": {}, "trade_rules": {}})
+    assert "0700.HK" in p and "score_6" in p
+    assert "綜合判斷" in SYSTEM_PROMPT and "信心度" in SYSTEM_PROMPT
+    # 供應商設定 → Config 管線(暫存 yaml)
+    import tempfile, os
+    yml = ("ai:\n"
+           "  providers:\n"
+           "    - name: TestAI\n"
+           "      base_url: http://example.invalid/v1\n"
+           "      api_key: sk-test\n"
+           "      model: test-model\n"
+           "  default: TestAI\n")
+    fd, path = tempfile.mkstemp(suffix=".yaml")
+    os.close(fd)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(yml)
+        from app.config import Config
+        c = Config(path)
+        assert c.ai_provider()["model"] == "test-model"
+        assert c.ai_provider("不存在")["name"] == "TestAI"   # 回退第一個
+        assert c.ai_default == "TestAI"
+    finally:
+        os.unlink(path)
+    # 錯誤處理:連不通的端點要給可讀的中文錯誤
+    try:
+        chat_completion({"name": "離線測試", "base_url": "http://127.0.0.1:9",
+                         "api_key": "", "model": "m"},
+                        [{"role": "user", "content": "hi"}], timeout=3)
+        raise AssertionError("應該失敗卻成功")
+    except RuntimeError as e:
+        assert "無法連線" in str(e) or "逾時" in str(e)
+    return "提示詞/設定管線/中文錯誤訊息 ✓"
+
+
 def run_all() -> int:
-    tests = [test_indicator_math, test_markets, test_six_condition_trigger,
+    tests = [test_indicator_math, test_markets, test_ai,
+             test_six_condition_trigger,
              test_backtest_pipeline, test_store_roundtrip, test_messages]
     print("=" * 62)
     print("港股即日買賣系統 — 自我測試")

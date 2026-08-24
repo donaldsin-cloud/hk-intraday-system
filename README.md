@@ -261,7 +261,35 @@ hk-intraday-system/
 └─ data/                  # 執行期產生(app.db、best_params.json、logs)
 ```
 
-## 十二、常見問題
+## 十二、🤖 AI 分析(自行加不同 model / API)
+
+「⚙️ 設定」分頁底部可加入**任意數量的 AI 模型**,只要該服務支援 OpenAI 相容的
+`chat/completions` 端點即可。內建模板一鍵帶入:
+
+| 模板 | Base URL | 預設 Model |
+|------|----------|-----------|
+| DeepSeek | `https://api.deepseek.com/v1` | deepseek-chat |
+| OpenAI | `https://api.openai.com/v1` | gpt-4o-mini |
+| Google Gemini | `…generativelanguage.googleapis.com/v1beta/openai` | gemini-2.0-flash |
+| OpenRouter(Claude等) | `https://openrouter.ai/api/v1` | anthropic/claude-3.5-sonnet |
+| Kimi 月之暗面 | `https://api.moonshot.cn/v1` | moonshot-v1-8k |
+| 通義千問 | `dashscope.aliyuncs.com/compatible-mode/v1` | qwen-plus |
+| Groq | `https://api.groq.com/openai/v1` | llama-3.3-70b-versatile |
+| Ollama 本機 | `http://127.0.0.1:11434/v1` | llama3.1 |
+
+用法:
+1. 「⚙️ 設定」→ 選供應商模板 →「＋ 新增模型」→ 貼上你的 **API Key** → 可勾選其中一個為**預設** →「💾 儲存 AI 設定」
+2. 按「測試連線」即時驗證 Key 與端點(不用先存檔)
+3. 到「🔍 自選分析」輸入代號 → 選模型 → 按 **🤖 AI 解讀**
+   → AI 會收到完整六指標數據(JSON),回覆【綜合判斷】【指標解讀】【關鍵價位】【操作建議】【信心度】
+
+API 對應:`GET /api/ai/providers`、`POST /api/ai/settings`、
+`POST /api/ai/settings-test`(未存檔直接測)、`POST /api/ai/analyze`(body: symbol/size/provider)
+
+> 🔐 API Key 只寫入伺服器上的 config.yaml(已被 .gitignore 排除,不會上 GitHub);
+> 公開部署時記得設定存取金鑰,否則任何人都能用你的 Key。
+
+## 十三、常見問題
 
 - **一定要 FutuOpenD 嗎?** 不必。沒有它系統以 yfinance(延遲/歷史)或合成數據運作;但要「即時開市掃描」就需要 FutuOpenD 登入在背景執行。
 - **會自動下單嗎?** 不會。本系統只產生訊號與通知,下單請在富途牛牛 App 自行操作(刻意設計,降低誤觸風險)。
