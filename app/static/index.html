@@ -452,7 +452,8 @@ async function showBT(id){
 const reasonZh=r=>({'take-profit':t('🎯 目標+5%'),'stop-loss':t('🛑 止損'),'eod-close':t('⏰ 收市平倉')}[r]||r);
 Object.assign(EN,{"🎯 目標+5%":"🎯 +5% target hit","🛑 止損":"🛑 Stop-loss","⏰ 收市平倉":"⏰ EOD close",
 "期望值/筆":"Expectancy","平均盈利":"Avg win","平均虧損":"Avg loss","總報酬(複利)":"Total return","年化":"CAGR","交易天數":"Trade days",
-"分析中…":"Analyzing…","柱 ":"Hist ","分位 ":"pctile ","❌":"❌"});
+"分析中…":"Analyzing…","柱 ":"Hist ","分位 ":"pctile ","❌":"❌",
+"即時監察數量上限(0=全部)":"Live scan cap (0 = all)","掃描設定":"Scanning"});
 
 /* ---- canvas equity chart(離線可用,不依賴CDN)---- */
 function drawEquity(cv,pts){
@@ -750,6 +751,7 @@ const SCHEMA=[
  ['scanner','掃描設定',[
    ['interval_sec','掃描間隔(秒)','num'],['bar_size','K線週期','sel:1m|5m|15m'],
    ['lookback_bars','回看根數','num'],
+   ['max_symbols','即時監察數量上限(0=全部)','num'],
  ]],
  ['backtest','回測',[['years','回測年數','num'],['cost_pct','每筆來回成本 %','fnum']]],
  ['optimizer','獲利因子調叟',[
@@ -820,6 +822,9 @@ const PDOC={
  min_score:{min:1,max:6,def:4,
   zh:"★ 買入觸發方式 — 最少成立項數(1–6),僅在未勾選「六項全中」時生效。4=平衡;5–6=高質量少訊號;≤3=進場頻繁、勝率通常下降。",
   en:"★ Buy trigger — minimum flags met (1–6), active only when 'all six' unchecked. 4 balanced; 5–6 quality over quantity; ≤3 frequent, usually weaker win-rate."},
+ max_symbols:{min:0,max:500,def:0,
+  zh:"即時監察數量上限 — 每輪掃描與清單顯示最多多少隻,依監察名單順序截斷(港股在前、美股在後)。0=不限制(掃描全部)。調低可避開免費數據源限流、加快每輪速度;想控制監察哪些隻,直接在下方名單把想要的排到前面。",
+  en:"Live scan cap — max symbols scanned & listed per cycle, cut from the watchlist order (HK first, then US). 0 = no limit. Lower it to dodge free-feed rate limits; reorder the lists below to choose which names get monitored."},
 };
 const SC_LABEL={};SCHEMA.forEach(([g,title,fs])=>fs.forEach(([k,l])=>SC_LABEL[k]=l));
 Object.assign(EN,{"最小":"Min","最大":"Max","預設":"Default"});

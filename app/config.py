@@ -121,6 +121,11 @@ class Config:
         self.scan_interval = int(sc.get("interval_sec", 30))
         self.bar_size = sc.get("bar_size", "1m")
         self.lookback = int(sc.get("lookback_bars", 300))
+        # 即時監察數量上限:0=不限制;>0 時只掃描/顯示清單前 N 隻(港股在前)
+        try:
+            self.max_symbols = max(0, int(sc.get("max_symbols") or 0))
+        except (TypeError, ValueError):
+            self.max_symbols = 0
         wl = sc.get("watchlist") or DEFAULT_WATCHLIST
         self.watchlist = [normalize_symbol(s) for s in wl]
         wlu = sc.get("watchlist_us")
@@ -212,3 +217,10 @@ class Config:
         """全部監察代號 → [(symbol, market)]。"""
         return ([(s, "hk") for s in self.watchlist]
                 + [(s, "us") for s in self.watchlist_us])
+
+    def scan_symbols(self) -> list[tuple[str, str]]:
+        """實際掃描/顯示的清單 = all_symbols 截斷至 max_symbols(0=全部)。"""
+        syms = self.all_symbols()
+        if getattr(self, "max_symbols", 0) > 0:
+            return syms[:self.max_symbols]
+        return syms

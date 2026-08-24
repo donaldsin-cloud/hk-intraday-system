@@ -63,7 +63,7 @@ class Scanner:
         with self.lock:
             params = self.cfg.active_strategy()
             opened = open_markets(self.cfg)
-            for sym, _mk in list(self.cfg.all_symbols()):
+            for sym, _mk in list(self.cfg.scan_symbols()):
                 if market_of(sym) not in opened:
                     continue
                 try:
@@ -143,7 +143,7 @@ class Scanner:
     def snapshot(self) -> list[dict]:
         data = self.store.all_states()
         out = []
-        for sym, mk in self.cfg.all_symbols():
+        for sym, mk in self.cfg.scan_symbols():
             row = data.get(sym) or {"symbol": sym, "name": stock_name(sym),
                                     "market": mk, "phase": "-", "ready": False}
             row.setdefault("market", mk)
