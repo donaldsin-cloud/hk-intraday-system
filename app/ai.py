@@ -57,10 +57,10 @@ def chat_completion(provider: dict, messages: list[dict],
                     max_tokens: int = 900,
                     timeout: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
     """呼叫 OpenAI 相容端點,回傳 (回覆文字, 耗時秒)。失敗 raise RuntimeError(中文)。"""
-    base = (provider.get("base_url") or "").strip().rstrip("/")
-    key = (provider.get("api_key") or "").strip()
-    model = (provider.get("model") or "").strip()
-    name = provider.get("name") or base
+    base = str(provider.get("base_url") or "").strip().rstrip("/")
+    key = str(provider.get("api_key") or "").strip()
+    model = str(provider.get("model") or "").strip()
+    name = str(provider.get("name") or base)
     if not base:
         raise RuntimeError(f"[{name}] 缺少 base_url")
     if not model:

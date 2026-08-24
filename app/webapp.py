@@ -4,7 +4,9 @@
 """
 import os
 import re
+import sys
 import threading
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -402,7 +404,17 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
 
     @app.exception_handler(Exception)
     async def on_error(request, exc):  # noqa: ANN001
-        return JSONResponse(status_code=500, content={"detail": str(exc)[:300]})
+        """任何未捕捉例外:完整堆疊印到 Log(Render 可見),回應帶類型+位置方便定位。"""
+        traceback.print_exc()
+        tb = sys.exc_info()[2]
+        loc = ""
+        if tb is not None:
+            fr = traceback.extract_tb(tb)[-1]
+            short = fr.filename.replace("\\", "/").rsplit("/", 1)[-1]
+            loc = f" @ {short}:{fr.lineno}({fr.name})"
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"❌ {type(exc).__name__}: {str(exc)[:180]}{loc}"})
 
     return app
 
