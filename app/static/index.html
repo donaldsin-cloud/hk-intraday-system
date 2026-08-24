@@ -556,7 +556,7 @@ const SCHEMA=[
    ['min_trades','驗證集最低交易數','num'],['train_ratio','訓練集比例','fnum']]],
  ['scheduler','排程',[
    ['retune_time','每日自動調叟時間(HKT)','txt'],['baseline_on_start','啟動時自動基準回測','chk']]],
- ['feed','數據源',[['mode','模式','sel:auto|futu|yfinance|synthetic']]],
+ ['feed','數據源',[['mode','模式(auto=自動降級)','sel:auto|futu|yfinance|tencent|eastmoney|synthetic']]],
  ['telegram','Telegram 通知',[
    ['enabled','啟用推送','chk'],['bot_token','Bot Token','pwd'],['chat_id','Chat ID','txt']]],
  ['web','公開存取保護',[['access_token','存取金鑰(設為空 = 不設防)','txt']]],

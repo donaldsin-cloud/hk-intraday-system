@@ -311,14 +311,236 @@ class SyntheticFeed:
         pass
 
 
+# ---------------------------------------------------------------- 騰訊行情
+def _tx_headers():
+    return {"User-Agent": "Mozilla/5.0", "Referer": "https://gu.qq.com/"}
+
+
+def _tx_symbol(symbol: str) -> str:
+    from .config import detect_market, normalize_symbol
+    s = normalize_symbol(symbol)
+    if detect_market(s) == "hk":
+        return "hk" + s.split(".")[0].zfill(5)
+    return "us" + s.upper()
+
+
+def _tx_parse(bars: list) -> pd.DataFrame:
+    """騰訊K線列 [時間,開,收,高,低,量,…] → 標準 OHLCV DataFrame。"""
+    rows = []
+    for b in bars:
+        t = str(b[0])
+        ts = pd.to_datetime(t, format="%Y%m%d%H%M") if len(t) >= 12 \
+            else pd.to_datetime(t)
+        # 騰訊順序:[時間, 開, 收, 高, 低, 量]
+        rows.append((ts, float(b[1]), float(b[3]), float(b[4]),
+                     float(b[2]), float(b[5])))
+    df = pd.DataFrame(rows, columns=["date", "open", "high", "low",
+                                     "close", "volume"])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date").sort_index()
+    return df[["open", "high", "low", "close", "volume"]]
+
+
+class TencentFeed:
+    """騰訊行情(web.ifzq.gtimg.cn)— 免金鑰,港/美 分K與日K。"""
+    name = "tencent"
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def _get(self, url: str):
+        import requests
+        r = requests.get(url, headers=_tx_headers(), timeout=20)
+        r.raise_for_status()
+        return r.json()
+
+    def warmup_check(self):
+        df = self._daily("hk00700", 120)
+        if df is None or len(df) == 0:
+            raise FeedError("騰訊行情無法取得測試數據")
+
+    def _mkline(self, code: str, m: str, n: int):
+        """分K端點有兩個主機,依序嘗試。"""
+        last = None
+        for host in ("https://ifzq.gtimg.cn", "https://web.ifzq.gtimg.cn"):
+            try:
+                return self._get(f"{host}/appstock/app/kline/mkline"
+                                 f"?param={code},{m},,{n}")
+            except Exception as e:  # noqa: BLE001
+                last = e
+        raise FeedError(f"騰訊分K連線失敗: {last}")
+
+    def _daily(self, symbol: str, count: int) -> pd.DataFrame:
+        code = _tx_symbol(symbol)
+        d = self._get("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+                      f"?param={code},day,,,{count},qfq")
+        node = (d.get("data") or {}).get(code) or {}
+        bars = next((node[k] for k in node if "day" in k and
+                     isinstance(node[k], list)), None)
+        if not bars:
+            raise FeedError(f"騰訊無 {symbol} 日K數據")
+        out = _normalize(_tx_parse(bars))
+        if len(out) < min(count, 60):     # 太少=代號不對(如美股缺後綴)
+            raise FeedError(f"騰訊 {symbol} 日K僅{len(out)}根")
+        return out
+
+    def get_bars(self, symbol: str, size: str = "1m", count: int = 300) -> pd.DataFrame:
+        m = {"1m": "m1", "5m": "m5", "15m": "m15"}.get(size, "m1")
+        code = _tx_symbol(symbol)
+        d = self._mkline(code, m, max(count + 20, 60))
+        node = (d.get("data") or {}).get(code) or {}
+        bars = node.get(m)
+        if not bars:
+            raise FeedError(f"騰訊無 {symbol} {size} K(Yahoo式休市或代號不支援)")
+        out = _normalize(_tx_parse(bars))
+        return drop_partial_last(out.tail(count))
+
+    def history_daily(self, symbol: str, years: int = 5) -> pd.DataFrame:
+        want = min(int(years * 260) + 30, 4000)
+        try:
+            return self._daily(symbol, want)
+        except FeedError:
+            if _tx_symbol(symbol).startswith("us"):     # 美股補交易所後綴再試
+                for suf in (".OQ", ".N", ".A"):
+                    code = _tx_symbol(symbol) + suf
+                    d = self._get("https://web.ifzq.gtimg.cn/appstock/app/fqkline"
+                                  f"/get?param={code},day,,,{want},qfq")
+                    node = (d.get("data") or {}).get(code) or {}
+                    bars = next((node[k] for k in node if "day" in k
+                                 and isinstance(node[k], list)), None)
+                    if bars and len(bars) > 100:
+                        return _normalize(_tx_parse(bars))
+            raise
+
+    def close(self):
+        pass
+
+
+# ---------------------------------------------------------------- 東方財富
+_EM_KLT = {"1m": "1", "5m": "5", "15m": "15"}
+_EM_US_MARKETS = ("105", "106", "107")      # NYSE / NASDAQ / AMEX
+
+
+def _em_secid(symbol: str, resolved: dict | None = None) -> tuple[str, str]:
+    from .config import detect_market, normalize_symbol
+    s = normalize_symbol(symbol)
+    if detect_market(s) == "hk":
+        return "116." + s.split(".")[0].zfill(5), ""
+    code = s.upper()
+    hit = (resolved or {}).get(code)
+    if hit:
+        return f"{hit}.{code}", hit
+    return f"105.{code}", ""                  # 先試 NYSE,失敗時上層輪詢
+
+
+def _em_parse(klines: list) -> pd.DataFrame:
+    """東方財富 klines 字串 'date,open,close,high,low,volume[,amount…]' → DF"""
+    rows = []
+    for line in klines:
+        p = str(line).split(",")
+        # 順序:f51日期 f52開 f53收 f54高 f55低 f56量
+        rows.append((pd.to_datetime(p[0]), float(p[1]), float(p[3]),
+                     float(p[4]), float(p[2]), float(p[5])))
+    df = pd.DataFrame(rows, columns=["date", "open", "high", "low",
+                                     "close", "volume"])
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date").sort_index()
+    return df[["open", "high", "low", "close", "volume"]]
+
+
+class EastMoneyFeed:
+    """東方財富(push2his.eastmoney.com)— 免金鑰歷史K線,HK=116/US=105-107。"""
+    name = "eastmoney"
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self._mk_cache: dict[str, str] = {}
+
+    def _get(self, secid: str, klt: str, lmt: int):
+        import requests
+        u = ("https://push2his.eastmoney.com/api/qt/stock/kline/get"
+             f"?secid={secid}&klt={klt}&fqt=1&lmt={lmt}&end=20500101"
+             "&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57")
+        r = requests.get(u, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        r.raise_for_status()
+        data = (r.json() or {}).get("data") or {}
+        kl = data.get("klines") or []
+        return kl
+
+    def warmup_check(self):
+        kl = self._get("116.00700", "101", 30)
+        if not kl:
+            raise FeedError("東方財富無法取得測試數據")
+
+    def _resolve_us(self, symbol: str, klt: str, lmt: int) -> list:
+        """美股要選對市場代號:105 NYSE → 106 NASDAQ → 107 AMEX。"""
+        from .config import normalize_symbol
+        code = normalize_symbol(symbol).upper()
+        cached = self._mk_cache.get(code)
+        order = ([cached] if cached else []) + \
+                [m for m in _EM_US_MARKETS if m != cached]
+        last_err = None
+        for m in order:
+            try:
+                kl = self._get(f"{m}.{code}", klt, lmt)
+                if kl:
+                    self._mk_cache[code] = m
+                    return kl
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+        raise FeedError(f"東方財富無 {code} 數據({last_err})")
+
+    def get_bars(self, symbol: str, size: str = "1m", count: int = 300) -> pd.DataFrame:
+        klt = _EM_KLT.get(size, "1")
+        secid, mk = _em_secid(symbol, self._mk_cache)
+        if mk:                                    # 已知美股歸屬市場
+            kl = self._get(secid, klt, max(count + 20, 60))
+        else:
+            kl = self._resolve_us(symbol, klt, max(count + 20, 60)) \
+                if market_us(symbol) else self._get(secid, klt, max(count + 20, 60))
+            if not kl and not market_us(symbol):
+                raise FeedError(f"東方財富無 {symbol} {size} K")
+        if not kl:
+            raise FeedError(f"東方財富無 {symbol} {size} K")
+        out = _normalize(_em_parse(kl))
+        return drop_partial_last(out.tail(count))
+
+    def history_daily(self, symbol: str, years: int = 5) -> pd.DataFrame:
+        want = min(int(years * 260) + 30, 8000)
+        secid, mk = _em_secid(symbol, self._mk_cache)
+        kl = self._resolve_us(symbol, "101", want) if market_us(symbol) \
+            else self._get(secid, "101", want)
+        if not kl:
+            raise FeedError(f"東方財富無 {symbol} 日K")
+        out = _normalize(_em_parse(kl))
+        cutoff = pd.Timestamp.now().normalize() - pd.DateOffset(
+            years=max(1, min(years, 20)))
+        out = out[out.index >= cutoff]
+        if len(out) < 60:
+            raise FeedError(f"東方財富 {symbol} 日K不足({len(out)}根)")
+        return out
+
+    def close(self):
+        pass
+
+
+def market_us(symbol: str) -> bool:
+    from .config import detect_market, normalize_symbol
+    return detect_market(normalize_symbol(symbol)) == "us"
+
+
 # ---------------------------------------------------------------- 工廠
-_FEED_CLASSES = {"futu": FutuFeed, "yfinance": YFinanceFeed, "synthetic": SyntheticFeed}
+_FEED_CLASSES = {"futu": FutuFeed, "yfinance": YFinanceFeed,
+                 "tencent": TencentFeed, "eastmoney": EastMoneyFeed,
+                 "synthetic": SyntheticFeed}
 
 
 def create_feed(cfg, prefer: str | None = None):
-    """mode=auto 時依 futu → yfinance → synthetic 順序探測降級。"""
+    """mode=auto 時依 futu → yfinance → tencent → eastmoney → synthetic 探測降級。
+    騰訊/東方財富免金鑰且對雲端 IP 友善,作 Yahoo 被封時的備援。"""
     mode = prefer or os.environ.get("HK_FEED") or cfg.feed_mode or "auto"
-    order = [mode] if mode != "auto" else ["futu", "yfinance", "synthetic"]
+    order = [mode] if mode != "auto" else \
+        ["futu", "yfinance", "tencent", "eastmoney", "synthetic"]
     errors = []
     for name in order:
         cls = _FEED_CLASSES.get(name)

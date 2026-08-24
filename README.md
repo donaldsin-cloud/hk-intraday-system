@@ -289,6 +289,8 @@ API 對應:`GET /api/ai/providers`、`POST /api/ai/settings`、
 > 🔐 API Key 只寫入伺服器上的 config.yaml(已被 .gitignore 排除,不會上 GitHub);
 > 公開部署時記得設定存取金鑰,否則任何人都能用你的 Key。
 
+- **數據源備援鏈**:`auto` = futu → yfinance → **tencent(騰訊行情)** → **eastmoney(東方財富)** → synthetic。後兩者免金鑰、對雲端 IP 友善,Yahoo 在 Render 被限流時自動頂上;也可在「⚙️ 設定」直接指定單一來源。
+
 ## 十三、常見問題
 
 - **一定要 FutuOpenD 嗎?** 不必。沒有它系統以 yfinance(延遲/歷史)或合成數據運作;但要「即時開市掃描」就需要 FutuOpenD 登入在背景執行。
