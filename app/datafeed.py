@@ -142,25 +142,91 @@ class YFinanceFeed:
         except Exception:
             pass
 
+    @staticmethod
+    def _retry(fn, what: str, tries: int = 3):
+        """帶退避重試:Yahoo 對資料中心 IP 偶發 429/斷線。"""
+        import time as _t
+        last = None
+        for i in range(tries):
+            try:
+                out = fn()
+                if out is None or (hasattr(out, "__len__") and len(out) == 0):
+                    raise RuntimeError("返回空數據")
+                return out
+            except Exception as e:  # noqa: BLE001
+                last = e
+                if i < tries - 1:
+                    _t.sleep(min(1.5 * (i + 1), 4))
+        raise FeedError(f"{what} 失敗(重試 {tries} 次): {last}")
+
     def warmup_check(self):
-        df = self.yf.Ticker(yf_code("0700.HK")).history(period="5d", interval="1d")
-        if df is None or len(df) == 0:
-            raise FeedError("yfinance 無法取得測試數據(網絡?)")
+        self._retry(lambda: self.yf.Ticker(yf_code("0700.HK")).history(
+            period="5d", interval="1d"), "yfinance 連線測試")
 
     def get_bars(self, symbol: str, size: str = "1m", count: int = 300) -> pd.DataFrame:
         period = {"1m": "7d", "5m": "60d", "15m": "60d"}.get(size, "7d")
-        raw = self.yf.Ticker(yf_code(symbol)).history(period=period, interval=size,
-                                                      auto_adjust=False)
-        out = _normalize(raw)
+        code = yf_code(symbol)
+
+        def _fetch():
+            raw = self.yf.Ticker(code).history(period=period, interval=size,
+                                               auto_adjust=False)
+            out = _normalize(raw)
+            if len(out) == 0:
+                raise RuntimeError(f"{code} 無 {size} K線(Yahoo 可能封鎖此 IP 或休市)")
+            return out
+
+        out = self._retry(_fetch, f"取得 {symbol} {size}K")
         return drop_partial_last(out.tail(count))
 
     def history_daily(self, symbol: str, years: int = 5) -> pd.DataFrame:
-        raw = self.yf.download(yf_code(symbol), period=f"{max(1, min(years, 20))}y",
-                               interval="1d", progress=False, auto_adjust=False)
-        return _normalize(raw)
+        code = yf_code(symbol)
+
+        def _fetch():
+            raw = self.yf.download(code, period=f"{max(1, min(years, 20))}y",
+                                   interval="1d", progress=False, auto_adjust=False)
+            out = _normalize(raw)
+            if len(out) == 0:
+                raise RuntimeError("空數據")
+            return out
+
+        try:
+            return self._retry(_fetch, f"取得 {symbol} 日K")
+        except FeedError:
+            # 雲端備援:Stooq 免金鑰 CSV(對資料中心 IP 友善)
+            fb = _stooq_daily(symbol, years)
+            if fb is not None and len(fb) > 60:
+                return fb
+            raise
 
     def close(self):
         pass
+
+
+# ---------------------------------------------------------------- Stooq 備援
+def _stooq_daily(symbol: str, years: int = 5) -> pd.DataFrame | None:
+    """Stooq 免金鑰日K CSV:雲端 IP 友善。港股=0700.hk、美股=aapl.us。"""
+    import io
+    import requests
+    from .config import detect_market, normalize_symbol
+    sym = normalize_symbol(symbol)
+    s = (sym.split(".")[0].zfill(4) + ".hk") if detect_market(sym) == "hk" \
+        else (sym.lower() + ".us")
+    url = f"https://stooq.com/q/d/l/?s={s}&i=d"
+    try:
+        r = requests.get(url, timeout=20,
+                         headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        if "No data" in r.text[:200] or len(r.text) < 100:
+            return None
+        df = pd.read_csv(io.StringIO(r.text))
+        df.columns = [c.lower() for c in df.columns]
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date").sort_index()
+        cutoff = pd.Timestamp.now() - pd.DateOffset(years=max(1, min(years, 20)))
+        df = df[df.index >= cutoff]
+        return _normalize(df[["open", "high", "low", "close", "volume"]])
+    except Exception:  # noqa: BLE001
+        return None
 
 
 # ---------------------------------------------------------------- 合成數據

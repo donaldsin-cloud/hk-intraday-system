@@ -38,20 +38,28 @@ class Scanner:
         self.stop_evt.set()
 
     def _run(self):
+        backoff = 0                       # 大量失敗時的自適應退避(秒)
         while not self.stop_evt.wait(3):
             try:
                 if open_markets(self.cfg):
-                    self.scan_once()
+                    ok, err = self.scan_once()
+                    # 過半失敗 → 逐步放慢(最多 5 分鐘),保護 IP 不被數據源封鎖
+                    if err > 0 and err >= max(ok, 3):
+                        backoff = min(backoff * 2 or 30, 300)
+                    else:
+                        backoff = 0
                 else:
                     self.last_cycle = None
             except Exception:
                 self.cycle_errors += 1
                 traceback.print_exc()
-            self.stop_evt.wait(max(2, self.cfg.scan_interval))
+            self.stop_evt.wait(max(2, self.cfg.scan_interval) + backoff)
 
     def scan_once(self):
         """執行一輪掃描(API 的「立即掃描」也走這裡)。
-        只評估當前開市中的市場;休市市場的狀態保持不變。"""
+        只評估當前開市中的市場;休市市場的狀態保持不變。
+        回傳 (成功數, 失敗數)。"""
+        ok = err = 0
         with self.lock:
             params = self.cfg.active_strategy()
             opened = open_markets(self.cfg)
@@ -61,7 +69,9 @@ class Scanner:
                 try:
                     df = self.feed.get_bars(sym, self.cfg.bar_size, self.cfg.lookback)
                     res = indicators.evaluate(df, params)
+                    ok += 1
                 except Exception as e:  # noqa: BLE001
+                    err += 1
                     self.store.set_state(sym, {"symbol": sym, "error": str(e)[:200],
                                                "ts": now_hkt().isoformat(timespec="seconds")})
                     continue
@@ -70,6 +80,7 @@ class Scanner:
                 snapshot = self._snapshot_one(sym, st, res)
                 self.store.set_state(sym, snapshot)
             self.last_cycle = now_hkt().isoformat(timespec="seconds")
+        return ok, err
 
     # ---------------- 狀態機 ----------------
     def _transition(self, sym: str, st: dict, res: dict, params):

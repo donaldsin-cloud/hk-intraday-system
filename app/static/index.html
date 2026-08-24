@@ -95,6 +95,8 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <div id="tab-live">
   <div class="card">
     <h2>六大入市指標 · 即時狀態 <span class="note">(✅=條件成立;點列可看指標數值)</span></h2>
+    <div id="feedErr" style="display:none;color:var(--dn);font-size:13px;
+         margin-bottom:8px;white-space:normal"></div>
     <div class="tblwrap"><table id="liveTbl">
       <thead><tr>
         <th>市場</th><th>代號</th><th>名稱</th><th>現價</th><th>P&amp;L</th>
@@ -241,7 +243,9 @@ async function loadLive(){
   try{
     const d=await (await api('/api/state')).json();
     const tb=$('#liveTbl tbody');tb.innerHTML='';
+    const errs=[];
     for(const r of d.symbols||[]){
+      if(r.error)errs.push(r.symbol+': '+r.error);
       const f=r.flags||{};
       const tr=document.createElement('tr');
       if(r.buy)tr.className='buy-row';
@@ -260,6 +264,12 @@ async function loadLive(){
     }
     if(!(d.symbols||[]).length)
       tb.innerHTML='<tr><td colspan="14" class="empty">等待掃描…(開市時段每 30 秒自動更新)</td></tr>';
+    const fe=$('#feedErr');
+    if(errs.length){
+      fe.style.display='';
+      fe.innerHTML='⚠️ <b>'+errs.length+' 隻取數失敗</b>(可能 Yahoo 封鎖雲端 IP/休市): '+
+        esc(errs.slice(0,3).join(' | '))+(errs.length>3?' …等':'');
+    }else fe.style.display='none';
   }catch(e){}
 }
 async function scanNow(){try{await api('/api/scan-now',{method:'POST'});}catch(e){}}
