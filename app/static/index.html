@@ -61,6 +61,11 @@ canvas{width:100%;height:260px;display:block}
 .mono{font-variant-numeric:tabular-nums}
 .side-buy{color:var(--up);font-weight:700}.side-sell{color:var(--dn);font-weight:700}
 .empty{color:var(--dim);text-align:center;padding:26px 0;font-size:14px}
+.docbtn{padding:0 6px;margin-left:6px;font-size:12px;border-radius:8px}
+#docMask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+  z-index:60;align-items:center;justify-content:center;padding:18px}
+#docCard{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  max-width:520px;width:100%;max-height:80vh;overflow-y:auto;padding:18px}
 .note{font-size:12px;color:var(--dim);line-height:1.7;margin-top:8px}
 .mkt-btn.active{border-color:var(--up);color:var(--up);font-weight:700}
 select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx);
@@ -634,6 +639,81 @@ const SCHEMA=[
    ['enabled','啟用推送','chk'],['bot_token','Bot Token','pwd'],['chat_id','Chat ID','txt']]],
  ['web','公開存取保護',[['access_token','存取金鑰(設為空 = 不設防)','txt']]],
 ];
+/* ---- 參數詳解:每項含雙語說明 + 最小/最大/預設值(ℹ️ 彈窗)---- */
+const PDOC={
+ vol_ma_window:{min:5,max:120,def:20,
+  zh:"①成交量放大 — 計算「量比」的均線視窗 N。量比 = 最新一根K線成交量 ÷ 過去 N 根平均量(不含當根)。N 越大基準越平滑穩定、越不敏感;越小反應越快但噪音多。",
+  en:"①Volume surge — MA window N for the volume ratio (latest bar ÷ mean of prior N bars). Larger N = smoother, less sensitive baseline; smaller = faster but noisier."},
+ vol_expand_ratio:{min:1.1,max:10,def:1.8,
+  zh:"①成交量放大 — 觸發門檻。量比 ≥ 此值時①成立。調高(如2.5)只捕捉爆量突破;調低(如1.3)訊號更頻繁但質量下降。",
+  en:"①Volume surge — trigger threshold; flag met when ratio ≥ value. Raise to catch only explosive volume; lower for more (noisier) hits."},
+ ema_fast:{min:3,max:60,def:10,
+  zh:"②均線向上 — 快線 EMA 週期。與慢線組成多頭排列判斷:快線 > 慢線 且 收盤價 > 快線 才成立。數值越小越貼近短線走勢。",
+  en:"②EMA uptrend — fast EMA period. Bullish when fast > slow AND close > fast. Smaller hugs short-term price action."},
+ ema_slow:{min:10,max:250,def:30,
+  zh:"②均線向上 — 慢線 EMA 週期,必須大於快線才有意義(如 10/30)。越大代表趨勢定義越長線、成立門檻越高。",
+  en:"②EMA uptrend — slow EMA period; must exceed fast (e.g. 10/30). Larger = longer-term trend definition, stricter flag."},
+ bb_window:{min:10,max:120,def:20,
+  zh:"③布林帶開口 — 中軸 SMA 視窗。帶寬 = (上軌-下軌)/中軸,先以本視窗計算帶寬序列再取分位。",
+  en:"③BB expansion — middle SMA window. Bandwidth=(upper−lower)/middle; series used for percentile sizing."},
+ bb_k:{min:1.0,max:4.0,def:2.0,
+  zh:"③布林帶開口 — 標準差倍數 k,決定上下軌距離。k 越大帶越寬:「擠壓→開口」判定整體變嚴;較小則更容易出現開口訊號。",
+  en:"③BB expansion — std-dev multiplier k setting band width. Larger k widens bands and tightens squeeze→expansion logic."},
+ bb_width_pctile:{min:5,max:60,def:25,
+  zh:"③布林帶開口 — 壓縮分位線%。帶寬在最近約100根中的百分位低於此值記為「擠壓」,其後帶寬回升視為「開口」成立。調高=更容易累積擠壓狀態;調低=只認極度收窄。",
+  en:"③BB expansion — squeeze percentile %. Bandwidth below this percentile marks a squeeze; subsequent re-expansion sets the flag. Higher = easier squeeze memory."},
+ fib_lookback:{min:10,max:200,def:40,
+  zh:"④斐波那契回調 — 擺動高低點回看根數,在此範圍內找 swing high/low 畫 38.2%/61.8% 回調位。太大會把舊波段算進來而失真;太小可能找不到有效擺動。",
+  en:"④Fib retracement — swing lookback used to locate high/low and plot 38.2%/61.8% levels. Too large mixes in stale swings; too small may miss valid ones."},
+ fib_tolerance_pct:{min:0.1,max:5,def:1.0,
+  zh:"④斐波那契回調 — 貼近容差%。現價距離 38.2% 或 61.8% 回調位 ≤ 此百分比即成立。調大更容易成立(觸碰判定放寬)。",
+  en:"④Fib retracement — proximity tolerance %. Flag met when price is within this % of the 38.2%/61.8% level."},
+ rsi_window:{min:5,max:50,def:14,
+  zh:"⑤RSI 止穩回升 — RSI 計算週期(Wilder)。標準 14;縮短會更敏感、波動更大。",
+  en:"⑤RSI stabilize — RSI period (Wilder). Standard is 14; shorter reacts faster with more noise."},
+ rsi_lo:{min:30,max:55,def:45,
+  zh:"⑤RSI 止穩回升 — 區間下限。RSI 須落在 [下限,上限] 才算「50附近止穩」。下限調低(如35)= 接受超賣後初升段;調高(如50)= 只認強勢整理。",
+  en:"⑤RSI stabilize — band lower bound; RSI must sit within [lo,hi]. Lower accepts post-oversold turns; higher demands strength."},
+ rsi_hi:{min:50,max:70,def:58,
+  zh:"⑤RSI 止穩回升 — 區間上限,須 ≥ 下限。上限太高(>65)容易錯過回調買點;太低則幾乎所有 RSI 都符合。",
+  en:"⑤RSI stabilize — band upper bound (≥ lower). High caps miss pullback buys; low caps make the band trivial."},
+ macd_fast:{min:6,max:30,def:12,
+  zh:"⑥MACD — 快速 EMA 週期。經典 12;配合慢線 26、訊號 9。",
+  en:"⑥MACD — fast EMA period. Classic 12 with slow 26 / signal 9."},
+ macd_slow:{min:15,max:60,def:26,
+  zh:"⑥MACD — 慢速 EMA 週期,必須大於快線。越大對趨勢轉折反應越慢。",
+  en:"⑥MACD — slow EMA period (> fast). Larger lags trend turns more."},
+ macd_signal:{min:3,max:20,def:9,
+  zh:"⑥MACD — 訊號線(DEA)= DIF 的 EMA 週期,用於金叉判斷。",
+  en:"⑥MACD — signal (DEA) EMA of DIF; basis of golden-cross detection."},
+ macd_shrink_bars:{min:2,max:10,def:3,
+  zh:"⑥MACD — 能量柱連續縮短根數:空頭柱連續 N 根收斂(絕對值遞減)視為動能衰竭前置條件。",
+  en:"⑥MACD — histogram must shrink for N consecutive bars (declining magnitude) as momentum-fade precondition."},
+ macd_cross_lookback:{min:1,max:20,def:5,
+  zh:"⑥MACD — 金叉回看根數:最近 N 根內 DIF 上穿 DEA 即滿足金叉條件,與縮柱同時成立時⑥亮燈。",
+  en:"⑥MACD — cross lookback: DIF crossing above DEA within last N bars completes the flag together with shrinkage."},
+ require_all:{min:0,max:1,def:false,
+  zh:"★ 買入觸發方式 — 勾選=六項全部成立才發買入訊號(最嚴格,訊號極少);取消勾選=只要成立項數 ≥ min_score 就觸發。",
+  en:"★ Buy trigger — checked = all six flags required (strictest); unchecked = fires when met count ≥ min_score."},
+ min_score:{min:1,max:6,def:4,
+  zh:"★ 買入觸發方式 — 最少成立項數(1–6),僅在未勾選「六項全中」時生效。4=平衡;5–6=高質量少訊號;≤3=進場頻繁、勝率通常下降。",
+  en:"★ Buy trigger — minimum flags met (1–6), active only when 'all six' unchecked. 4 balanced; 5–6 quality over quantity; ≤3 frequent, usually weaker win-rate."},
+};
+const SC_LABEL={};SCHEMA.forEach(([g,title,fs])=>fs.forEach(([k,l])=>SC_LABEL[k]=l));
+Object.assign(EN,{"最小":"Min","最大":"Max","預設":"Default"});
+function showDoc(k){
+  const d=PDOC[k];if(!d)return;
+  const prim=LANG==='en'?d.en:d.zh,sec=LANG==='en'?d.zh:d.en;
+  const range=k==='require_all'
+    ?(LANG==='en'?'on / off':'開 / 關')
+    :`${t('最小')} <b>${d.min}</b> · ${t('最大')} <b>${d.max}</b> · ${t('預設')} <b>${d.def}</b>`;
+  $('#docBody').innerHTML=`<h2 style="margin-top:0">${esc(SC_LABEL[k]||k)}</h2>
+    <div class="note" style="margin-bottom:8px">${range}</div>
+    <p style="white-space:normal;line-height:1.7;margin-bottom:6px">${esc(prim)}</p>
+    <p style="white-space:normal;line-height:1.6;color:var(--dim);font-size:12.5px;margin-top:0">${esc(sec)}</p>`;
+  $('#docMask').style.display='flex';
+}
+function closeDoc(){$('#docMask').style.display='none'}
 let CFGFULL=null;
 async function renderSettings(){
   try{
@@ -647,13 +727,16 @@ async function renderSettings(){
     html+=`<h2 style="margin-top:12px">${t(title)}</h2><div class="grid">`;
     for(const [k,label,type] of fields){
       const id=`pf_${g}_${k}`,val=src[g]?.[k];
+      const doc=PDOC[k]?`<button type="button" class="ghost docbtn" title="ℹ️" onclick="showDoc('${k}')">ℹ️</button>`:'';
+      const mm=(PDOC[k]&&type==='num')||type==='fnum'
+        ?` type="number" step="any"${PDOC[k]?` min="${PDOC[k].min}" max="${PDOC[k].max}"`:''}`:'';
       if(type==='chk')
-        html+=`<div class="kpi"><label class="k"><input type="checkbox" id="${id}" data-g="${g}" data-k="${k}" data-t="chk" ${val?'checked':''}> ${t(label)}</label></div>`;
+        html+=`<div class="kpi"><label class="k"><input type="checkbox" id="${id}" data-g="${g}" data-k="${k}" data-t="chk" ${val?'checked':''}> ${t(label)}${doc}</label></div>`;
       else if(type.startsWith('sel:'))
         html+=`<div class="kpi"><div class="k">${t(label)}</div><select id="${id}" data-g="${g}" data-k="${k}" data-t="str">${
           type.split(':')[1].split('|').map(o=>`<option ${o===String(val)?'selected':''}>${o}</option>`).join('')}</select></div>`;
       else
-        html+=`<div class="kpi"><div class="k">${t(label)}</div><input id="${id}" data-g="${g}" data-k="${k}" data-t="${type}" value="${esc(val)}" style="width:100%" ${type==='pwd'?'type="password"':''}></div>`;
+        html+=`<div class="kpi"><div class="k">${t(label)}${doc}</div><input id="${id}" data-g="${g}" data-k="${k}" data-t="${type}" value="${esc(val)}" style="width:100%"${mm} ${type==='pwd'?'type="password"':''}></div>`;
     }
     html+='</div>';
   }
@@ -801,5 +884,11 @@ setInterval(loadMeta,30000);
 setInterval(()=>{if($('#tab-sig').style.display!=='none')loadSignals()},15000);
 setInterval(()=>{if($('#tab-bt').style.display!=='none')loadBacktests()},30000);
 </script>
+<div id="docMask" onclick="if(event.target===this)closeDoc()">
+  <div id="docCard">
+    <div id="docBody"></div>
+    <div style="text-align:right;margin-top:10px"><button onclick="closeDoc()">OK</button></div>
+  </div>
+</div>
 </body>
 </html>
