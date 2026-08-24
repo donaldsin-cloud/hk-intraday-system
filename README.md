@@ -289,6 +289,7 @@ API 對應:`GET /api/ai/providers`、`POST /api/ai/settings`、
 > 🔐 API Key 只寫入伺服器上的 config.yaml(已被 .gitignore 排除,不會上 GitHub);
 > 公開部署時記得設定存取金鑰,否則任何人都能用你的 Key。
 
+- **介面語言**:右上角 **EN / 中文** 一鍵切換(選擇存在瀏覽器);切到英文時「🤖 AI 解讀」也會改用英文提示詞輸出。
 - **數據源備援鏈**:`auto` = futu → yfinance → **tencent(騰訊行情)** → **eastmoney(東方財富)** → synthetic。後兩者免金鑰、對雲端 IP 友善,Yahoo 在 Render 被限流時自動頂上;也可在「⚙️ 設定」直接指定單一來源。
 
 ## 十三、常見問題

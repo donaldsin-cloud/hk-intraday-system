@@ -75,69 +75,71 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <body>
 <div class="wrap">
 <header>
-  <h1>📈 港美即日買賣訊號</h1>
-  <span id="hkBadge" class="badge closed">HK 休市</span>
-  <span id="usBadge" class="badge closed">US 休市</span>
+  <h1 data-zh="📈 港美即日買賣訊號">📈 港美即日買賣訊號</h1>
+  <span id="hkBadge" class="badge closed">HK</span>
+  <span id="usBadge" class="badge closed">US</span>
   <div class="spacer"></div>
   <span id="feedTag">feed: -</span>
   <span id="clock">--:--:--</span>
-  <button class="ghost" onclick="scanNow()">立即掃描</button>
+  <button class="ghost" id="langBtn" onclick="toggleLang()">EN</button>
+  <button class="ghost" onclick="scanNow()" data-zh="立即掃描">立即掃描</button>
 </header>
 
 <div class="tabs">
-  <div class="tab active" data-t="live">即時監察</div>
-  <div class="tab" data-t="cx">🔍 自選分析</div>
-  <div class="tab" data-t="sig">訊號紀錄</div>
-  <div class="tab" data-t="bt">回測與調叟</div>
-  <div class="tab" data-t="set">⚙️ 設定</div>
+  <div class="tab active" data-t="live" data-zh="即時監察">即時監察</div>
+  <div class="tab" data-t="cx" data-zh="🔍 自選分析">🔍 自選分析</div>
+  <div class="tab" data-t="sig" data-zh="訊號紀錄">訊號紀錄</div>
+  <div class="tab" data-t="bt" data-zh="回測與調叟">回測與調叟</div>
+  <div class="tab" data-t="set" data-zh="⚙️ 設定">⚙️ 設定</div>
 </div>
 
 <!-- ============ 即時監察 ============ -->
 <div id="tab-live">
   <div class="card">
-    <h2>六大入市指標 · 即時狀態 <span class="note">(✅=條件成立;點列可看指標數值)</span></h2>
+    <h2 data-zh="六大入市指標 · 即時狀態">六大入市指標 · 即時狀態
+      <span class="note" data-zh="(✅=條件成立;點列可看指標數值)">(✅=條件成立;點列可看指標數值)</span></h2>
     <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap;align-items:center">
-      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('live','all')">全部</button>
-      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('live','hk')">🇭🇰 港股</button>
-      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('live','us')">🇺🇸 美股</button>
+      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('live','all')" data-zh="全部">全部</button>
+      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('live','hk')" data-zh="🇭🇰 港股">🇭🇰 港股</button>
+      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('live','us')" data-zh="🇺🇸 美股">🇺🇸 美股</button>
       <span id="mktStats" class="note"></span>
     </div>
     <div id="feedErr" style="display:none;color:var(--dn);font-size:13px;
          margin-bottom:8px;white-space:normal"></div>
     <div class="tblwrap"><table id="liveTbl">
       <thead><tr>
-        <th>市場</th><th>代號</th><th>名稱</th><th>現價</th><th>P&amp;L</th>
-        <th title="① 成交量放大">①量</th>
-        <th title="② 均線向上·價在均線上方">②均線</th>
-        <th title="③ 布林帶開口">③布林</th>
-        <th title="④ 回調至斐波 38.2/61.8">④斐波</th>
-        <th title="⑤ RSI 50 附近止穩回升">⑤RSI</th>
-        <th title="⑥ MACD 縮柱·金叉">⑥MACD</th>
-        <th>評分</th><th>狀態</th><th>更新</th>
+        <th data-zh="市場">市場</th><th data-zh="代號">代號</th><th data-zh="名稱">名稱</th><th data-zh="現價">現價</th><th>P&amp;L</th>
+        <th title="① 成交量放大" data-zh="①量">①量</th>
+        <th title="② 均線向上·價在均線上方" data-zh="②均線">②均線</th>
+        <th title="③ 布林帶開口" data-zh="③布林">③布林</th>
+        <th title="④ 回調至斐波 38.2/61.8" data-zh="④斐波">④斐波</th>
+        <th title="⑤ RSI 50 附近止穩回升" data-zh="⑤RSI">⑤RSI</th>
+        <th title="⑥ MACD 縮柱·金叉" data-zh="⑥MACD">⑥MACD</th>
+        <th data-zh="評分">評分</th><th data-zh="狀態">狀態</th><th data-zh="更新">更新</th>
       </tr></thead><tbody></tbody>
     </table></div>
-    <p class="note">買入 = <b>至少 4 項指標成立</b>(min_score 可調,6 項全中為最強訊號)。持倉中到達 <b>+5%</b> 或止損會即時 Telegram 通知並標記賣出。</p>
+    <p class="note" data-zh="買入 = 至少 4 項指標成立(min_score 可調,6 項全中為最強訊號)。持倉中到達 +5% 或止損會即時 Telegram 通知並標記賣出。">買入 = <b>至少 4 項指標成立</b>(min_score 可調,6 項全中為最強訊號)。持倉中到達 <b>+5%</b> 或止損會即時 Telegram 通知並標記賣出。</p>
   </div>
 </div>
 
 <!-- ============ 自選分析 ============ -->
 <div id="tab-cx" style="display:none">
   <div class="card">
-    <h2>自選獨立分析(不影響監察名單)</h2>
+    <h2 data-zh="自選獨立分析(不影響監察名單)">自選獨立分析(不影響監察名單)</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="cxSym" placeholder="輸入代號:AAPL、TSLA、0700.HK…" style="flex:1;min-width:180px"
+      <input id="cxSym" data-zh-ph="輸入代號:AAPL、TSLA、0700.HK…" placeholder="輸入代號:AAPL、TSLA、0700.HK…" style="flex:1;min-width:180px"
              onkeydown="if(event.key==='Enter')doAnalyze()">
       <select id="cxSize">
-        <option value="1m">1 分K</option>
-        <option value="5m">5 分K</option>
-        <option value="15m">15 分K</option>
+        <option value="1m" data-zh="1 分K">1 分K</option>
+        <option value="5m" data-zh="5 分K">5 分K</option>
+        <option value="15m" data-zh="15 分K">15 分K</option>
       </select>
-      <button onclick="doAnalyze()">🔍 分析</button>
+      <button onclick="doAnalyze()" data-zh="🔍 分析">🔍 分析</button>
       <select id="cxAI" style="min-width:140px"><option value="">AI:未設定</option></select>
-      <button onclick="doAI()">🤖 AI 解讀</button>
-      <button class="ghost" onclick="doSingleBT()">回測此股 5 年</button>
+      <button onclick="doAI()" data-zh="🤖 AI 解讀">🤖 AI 解讀</button>
+      <button class="ghost" onclick="doSingleBT()" data-zh="回測此股 5 年">回測此股 5 年</button>
     </div>
-    <p class="note">直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。
+    <p class="note" data-zh="直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。「回測此股」以日K模擬即日鮮(+5%目標/止損/收市平倉),結果存入「回測與調叟」清單。">直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。
       「回測此股」以日K模擬即日鮮(+5%目標/止損/收市平倉),結果存入「回測與調叟」清單。</p>
   </div>
   <div id="cxResult"></div>
@@ -146,15 +148,15 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <!-- ============ 訊號紀錄 ============ -->
 <div id="tab-sig" style="display:none">
   <div class="card">
-    <h2>Telegram 買賣訊號紀錄</h2>
+    <h2 data-zh="Telegram 買賣訊號紀錄">Telegram 買賣訊號紀錄</h2>
     <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap">
-      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('sig','all')">全部</button>
-      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('sig','hk')">🇭🇰 港股</button>
-      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('sig','us')">🇺🇸 美股</button>
+      <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('sig','all')" data-zh="全部">全部</button>
+      <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('sig','hk')" data-zh="🇭🇰 港股">🇭🇰 港股</button>
+      <button class="mkt-btn ghost" data-m="us" onclick="setMkt('sig','us')" data-zh="🇺🇸 美股">🇺🇸 美股</button>
     </div>
     <div class="tblwrap"><table id="sigTbl">
-      <thead><tr><th>時間</th><th>方向</th><th>代號</th><th>名稱</th>
-        <th>價格</th><th>P&amp;L</th><th>評分</th><th>備註</th></tr></thead>
+      <thead><tr><th data-zh="時間">時間</th><th data-zh="方向">方向</th><th data-zh="代號">代號</th><th data-zh="名稱">名稱</th>
+        <th data-zh="價格">價格</th><th>P&amp;L</th><th data-zh="評分">評分</th><th data-zh="備註">備註</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <p class="note" id="tgNote"></p>
@@ -164,28 +166,27 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
 <!-- ============ 回測 ============ -->
 <div id="tab-bt" style="display:none">
   <div class="card">
-    <h2>回測紀錄(最近5年 · 每日自動重跑調叟)</h2>
+    <h2 data-zh="回測紀錄(最近5年 · 每日自動重跑調叟)">回測紀錄(最近5年 · 每日自動重跑調叟)</h2>
     <div class="tblwrap"><table id="btTbl">
-      <thead><tr><th>#</th><th>時間</th><th>類型</th><th>獲利因子</th>
-        <th>勝率</th><th>交易數</th><th>總報酬</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th data-zh="時間">時間</th><th data-zh="類型">類型</th><th data-zh="獲利因子">獲利因子</th>
+        <th data-zh="勝率">勝率</th><th data-zh="交易數">交易數</th><th data-zh="總報酬">總報酬</th><th></th></tr></thead>
       <tbody></tbody>
     </table></div>
-    <p class="note">「每日調叟」= 每個交易日收市後以最近5年數據重新網格搜索,
-      以<b>驗證集獲利因子最高</b>(交易數≥下限)選出最佳參數,寫入 best_params.json 供翌日掃描使用。</p>
+    <p class="note" data-zh="「每日調叟」= 每個交易日收市後以最近5年數據重新網格搜索,以驗證集獲利因子最高(交易數≥下限)選出最佳參數,寫入 best_params.json 供翌日掃描使用。">「每日調叟」= 每個交易日收市後以最近5年數據重新網格搜索,以驗證集獲利因子最高(交易數≥下限)選出最佳參數,寫入 best_params.json 供翌日掃描使用。</p>
   </div>
   <div class="card" id="btDetail" style="display:none"></div>
 </div>
 <!-- ============ 設定 ============ -->
 <div id="tab-set" style="display:none">
   <div class="card">
-    <h2>⚙️ 所有參數設定 <span id="ovBadge" class="note"></span></h2>
+    <h2>⚙️ <span data-zh="所有參數設定">所有參數設定</span> <span id="ovBadge" class="note"></span></h2>
     <div id="setForm"></div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-      <button onclick="saveSettings()">💾 儲存全部參數</button>
-      <button class="ghost" onclick="clearOverlay()">清除每日調叟覆蓋</button>
+      <button onclick="saveSettings()" data-zh="💾 儲存全部參數">💾 儲存全部參數</button>
+      <button class="ghost" onclick="clearOverlay()" data-zh="清除每日調叟覆蓋">清除每日調叟覆蓋</button>
       <span id="setMsg" class="note"></span>
     </div>
-    <p class="note">儲存後立即生效並寫回 config.yaml。「清除調叟覆蓋」會刪除 best_params.json,
+    <p class="note" data-zh="儲存後立即生效並寫回 config.yaml。「清除調叟覆蓋」會刪除 best_params.json,讓此頁的基礎參數直接生效(否則每日自動調叟的結果優先)。">儲存後立即生效並寫回 config.yaml。「清除調叟覆蓋」會刪除 best_params.json,
       讓此頁的基礎參數直接生效(否則每日自動調叟的結果優先)。</p>
   </div>
 </div>
@@ -199,6 +200,75 @@ const pct=v=>v==null?'-':`<span class="${v>=0?'pos':'neg'}">${v>=0?'+':''}${fmt(
 const flagCell=on=>on?'<span class="f-on">✔</span>':'<span class="f-off">·</span>';
 const scoreCls=s=>s>=6?'s6':s===5?'s5':s===4?'s4':'s0-3';
 const PH={WATCH:'觀察',LONG:'🟢 持倉',DONE:'已平倉','-':'-'};
+
+/* ---- i18n(中/英)---- */
+let LANG=localStorage.getItem('dsh_lang')||'zh';
+const EN={"📈 港美即日買賣訊號":"📈 HK·US Intraday Signals","立即掃描":"Scan now",
+"即時監察":"Live","🔍 自選分析":"🔍 Custom","訊號紀錄":"Signals","回測與調叟":"Backtests","⚙️ 設定":"⚙️ Settings",
+"六大入市指標 · 即時狀態":"Six Indicators · Live","(✅=條件成立;點列可看指標數值)":"(✅=met; hover a row for values)",
+"全部":"All","🇭🇰 港股":"🇭🇰 HK","🇺🇸 美股":"🇺🇸 US",
+"市場":"Mkt","代號":"Symbol","名稱":"Name","現價":"Price","評分":"Score","狀態":"Phase","更新":"Updated",
+"①量":"①Vol","②均線":"②EMA","③布林":"③BB","④斐波":"④Fib","⑤RSI":"⑤RSI","⑥MACD":"⑥MACD",
+"買入 = 至少 4 項指標成立(min_score 可調,6 項全中為最強訊號)。持倉中到達 +5% 或止損會即時 Telegram 通知並標記賣出。":"BUY = at least 4 of 6 indicators met (tunable). While holding, +5% target or stop-loss fires an instant Telegram alert.",
+"自選獨立分析(不影響監察名單)":"Custom Analysis (watchlist untouched)",
+"輸入代號:AAPL、TSLA、0700.HK…":"Symbol: AAPL, TSLA, 0700.HK…",
+"1 分K":"1-min","5 分K":"5-min","15 分K":"15-min",
+"🔍 分析":"🔍 Analyze","🤖 AI 解讀":"🤖 AI Read","回測此股 5 年":"5-Yr Backtest",
+"直接輸入美股代號(AAPL)或港股代號(0700.HK / 700)即可;系統自動辨識市場。「回測此股」以日K模擬即日鮮(+5%目標/止損/收市平倉),結果存入「回測與調叟」清單。":"Type any US ticker or HK code (0700.HK/700); market auto-detected. 'Backtest' simulates intraday on daily bars (+5%/stop/EOD), saved under Backtests.",
+"Telegram 買賣訊號紀錄":"Telegram Signal History","時間":"Time","方向":"Side","價格":"Price","備註":"Note",
+"回測紀錄(最近5年 · 每日自動重跑調叟)":"Backtest Runs (5yr · daily retune)",
+"類型":"Kind","獲利因子":"PF","勝率":"Win%","交易數":"Trades","總報酬":"Return",
+"「每日調叟」= 每個交易日收市後以最近5年數據重新網格搜索,以驗證集獲利因子最高(交易數≥下限)選出最佳參數,寫入 best_params.json 供翌日掃描使用。":"Daily retune: after each close, grid-search 5yr data; best params (validation PF, min trades) go to best_params.json for next-day scanning.",
+"所有參數設定":"All Parameters","💾 儲存全部參數":"💾 Save All","清除每日調叟覆蓋":"Clear Retune Overlay",
+"儲存後立即生效並寫回 config.yaml。「清除調叟覆蓋」會刪除 best_params.json,讓此頁的基礎參數直接生效(否則每日自動調叟的結果優先)。":"Changes take effect instantly and persist to config.yaml. 'Clear Overlay' deletes best_params.json so these base params apply directly.",
+" 開市":" Open"," 休市":" Closed",
+"⚠️ Telegram 未啟用:請到「⚙️ 設定」分頁填 bot_token / chat_id 並勾選啟用。訊號仍會記錄於上表。":"⚠️ Telegram off: fill bot_token / chat_id in ⚙️ Settings. Signals are still logged above.",
+"觀察":"Watch","🟢 持倉":"🟢 LONG","已平倉":"Closed",
+"量比":"Vol","布林百分位":"BB pctile","斐波":"Fib","距離":"dist","MACD柱":"Hist",
+"等待掃描…(開市時段每 30 秒自動更新)":"Waiting for scan…(auto every 30s in market hours)","此市場暫無資料":"No data for this market filter",
+"隻取數失敗":"failed","可能 Yahoo 封鎖雲端 IP/休市":"Yahoo may block cloud IPs / market closed",
+"隻":"","買入":"Buys",
+"暫無訊號":"No signals yet","🟢 買入":"🟢 BUY","🔴 賣出":"🔴 SELL",
+"尚無回測 — 等待排程器首次基準回測,或執行 python run.py tune":"No backtests yet — wait for baseline or run python run.py tune",
+"詳情":"Detail","權益曲線(同日均報酬複利)":"Equity Curve (compounded)","最佳化參數覆蓋":"Optimized Overrides","每股表現":"Per-Symbol","近期交易(最多500筆)":"Recent Trades",
+"日期":"Date","進場":"Entry","出場":"Exit","原因":"Reason","報酬":"Ret",
+"① 成交量放大":"① Volume surge","② 均線向上·價在均線上":"② EMA up & price above","③ 布林帶開口":"③ BB expansion","④ 斐波回調到位":"④ Fib retracement hit","⑤ RSI 止穩回升":"⑤ RSI stable & turning up","⑥ MACD 縮柱金叉":"⑥ MACD shrink + golden cross",
+"單K漲跌":"Bar chg","止損參考":"Stop ref","目標":"Target","符合買入條件":"BUY condition met","項成立":"of 6 met",
+"分析失敗: ":"Analyze failed: ","⏳ 正在回測最近 5 年…(約數秒)":"⏳ Backtesting 5 years…","已存入回測清單,可到「回測與調叟」看詳情":"saved — see Backtests tab","最大回撤":"MaxDD","回測失敗:":"Backtest failed:",
+"AI:未設定":"AI: not set","🤖 AI 分析中…(約5-20秒)":"🤖 AI reading…(5-20s)","AI 分析失敗:":"AI failed:",
+"六大入市指標參數":"Six Indicators","★ 買入觸發方式":"★ Buy Trigger","即日買賣規則":"Intraday Rules","掃描設定":"Scanning","回測":"Backtest","獲利因子調叟":"PF Optimizer","排程":"Schedule","數據源":"Data Feed","Telegram 通知":"Telegram","公開存取保護":"Access Protection",
+"①量均線視窗":"①Vol MA window","①量放大倍數":"①Surge ratio","②快線 EMA":"②Fast EMA","②慢線 EMA":"②Slow EMA","③布林視窗":"③BB window","③標準差 k":"③Std-dev k","③壓縮分位線":"③Squeeze pctile","④擺動回看根數":"④Swing lookback","④貼近容差 %":"④Tolerance %","⑤RSI 視窗":"⑤RSI window","⑤RSI 下限":"⑤RSI low","⑤RSI 上限":"⑤RSI high","⑥MACD 快線":"⑥MACD fast","⑥MACD 慢線":"⑥MACD slow","⑥訊號線":"⑥Signal line","⑥縮柱根數":"⑥Shrink bars","⑥金叉回看根數":"⑥Cross lookback",
+"六項全中才觸發(取消勾選=依下方最低項數)":"Require all 6 (uncheck = use min below)","最少成立項數(1-6)":"Min met (1-6)",
+"目標利潤 %(賣出)":"Take-profit % (sell)","止損 %":"Stop-loss %","收市前強制平倉":"Force EOD flat","收市前提示(分鐘)":"EOD warn (min)",
+"掃描間隔(秒)":"Interval (sec)","K線週期":"Bar size","回看根數":"Lookback bars",
+"回測年數":"Years","每筆來回成本 %":"Cost % per trade","驗證集最低交易數":"Min validation trades","訓練集比例":"Train ratio",
+"每日自動調叟時間(HKT)":"Retune time (HKT)","啟動時自動基準回測":"Baseline backtest on boot",
+"模式(auto=自動降級)":"Mode (auto = fallback chain)","啟用推送":"Enable push",
+"存取金鑰(設為空 = 不設防)":"Access token (empty = open)",
+"監察名單(每行一個代號)":"Watchlists (one per line)","🇭🇰 港股(如 0700.HK)":"🇭🇰 HK (e.g. 0700.HK)","🇺🇸 美股(如 AAPL)":"🇺🇸 US (e.g. AAPL)",
+"(目前由每日調叟覆蓋接管閾值)":"(retune overlay overrides thresholds)",
+"⚠️ 目前「每日調叟覆蓋」生效中——基礎參數的閾值會被 best_params.json 覆蓋。想讓此頁參數完全生效請按「清除每日調叟覆蓋」。":"⚠️ Retune overlay active — thresholds come from best_params.json. Use 'Clear Retune Overlay' to make this page authoritative.",
+"🤖 AI 分析模型(自行加不同 model / API)":"🤖 AI Models (add your own models/APIs)",
+"— 選供應商模板 —":"— provider preset —","＋ 新增模型":"＋ Add model","💾 儲存 AI 設定":"💾 Save AI",
+"API Key 只存在本伺服器的 config.yaml(不入 GitHub)。設好後到「🔍 自選分析」輸入代號按「🤖 AI 解讀」即可。任何 OpenAI 相容端點皆可(DeepSeek/OpenAI/Gemini/OpenRouter/Kimi/Qwen/Groq/Ollama…)。":"Keys stay in server config.yaml (never pushed to GitHub). Then: 🔍 Custom → 🤖 AI Read. Any OpenAI-compatible endpoint works.",
+"名稱":"Name","Base URL(OpenAI 相容)":"Base URL (OpenAI-compatible)","預設":"Default","測試連線":"Test","刪除":"Delete","測試中…":"Testing…",
+"尚未加入任何模型 — 上方選模板再按「＋ 新增模型」":"No models yet — pick a preset then 'Add model'",
+"儲存中…":"Saving…","✅ 已儲存並即時生效":"✅ Saved & live","個模型已儲存,預設=":"model(s) saved. Default=",
+"✅ 已清除覆蓋,此頁參數現為生效值":"✅ Overlay cleared — page params now apply",
+"確定刪除 best_params.json(每日調叟覆蓋)?":"Delete best_params.json (retune overlay)?"};
+const t=s=>{if(LANG!=='en')return s;const v=EN[s];return v===undefined?s:v;};
+function applyStatic(){
+  document.querySelectorAll('[data-zh]').forEach(el=>el.textContent=t(el.dataset.zh));
+  document.querySelectorAll('[data-zh-ph]').forEach(el=>el.placeholder=t(el.dataset.zhPh));
+  document.title=t('📈 港美即日買賣訊號');
+  $('#langBtn').textContent=LANG==='zh'?'EN':'中文';
+}
+function toggleLang(){
+  LANG=LANG==='zh'?'en':'zh';localStorage.setItem('dsh_lang',LANG);
+  applyStatic();loadMeta();loadLive();
+  if($('#tab-set').style.display!=='none')renderSettings();
+  if($('#tab-sig').style.display!=='none')loadSignals();
+}
 
 /* ---- 存取金鑰 + 統一 fetch ---- */
 let KEY=localStorage.getItem('dsh_key')||'';
@@ -232,26 +302,26 @@ setInterval(tick,1000);tick();
 
 function setBadge(sel,open,label){
   const b=$(sel);
-  b.textContent=label+(open?' 開市':' 休市');
+  b.textContent=label+(open?t(' 開市'):t(' 休市'));
   b.className='badge '+(open?'open':'closed');
 }
 let META=null;
 async function loadMeta(){
   try{
     META=await (await api('/api/meta')).json();
-    setBadge('#hkBadge',META.hk_open,'HK');
-    setBadge('#usBadge',META.us_open,'US');
+    setBadge('#hkBadge',META.hk_open,t('HK'));
+    setBadge('#usBadge',META.us_open,t('US'));
     $('#feedTag').textContent='feed: '+META.feed+(META.telegram_enabled?' · TG✓':' · TG✗');
-    if(!META.telegram_enabled)$('#tgNote').textContent='⚠️ Telegram 未啟用:請到「⚙️ 設定」分頁填 bot_token / chat_id 並勾選啟用。訊號仍會記錄於上表。';
+    if(!META.telegram_enabled)$('#tgNote').textContent=t('⚠️ Telegram 未啟用:請到「⚙️ 設定」分頁填 bot_token / chat_id 並勾選啟用。訊號仍會記錄於上表。');
   }catch(e){}
 }
 
 /* ---- live table ---- */
 function metricTip(m){
   if(!m)return'';
-  return [`量比 ${fmt(m.vol_ratio)}x`,`EMA${'快慢'} ${fmt(m.ema_fast)}/${fmt(m.ema_slow)}`,
-    `布林百分位 ${fmt(m.bb_width_pctile,0)}`,`斐波 ${m.fib_name||'-'} ${fmt(m.fib_level)} (距${fmt(m.fib_dist_pct)}%)`,
-    `RSI ${fmt(m.rsi,1)}`,`MACD柱 ${fmt(m.macd_hist,3)} ${m.macd_note||''}`].join('\n');
+  return [`${t('量比')} ${fmt(m.vol_ratio)}x`,`EMA ${fmt(m.ema_fast)}/${fmt(m.ema_slow)}`,
+    `${t('布林百分位')} ${fmt(m.bb_width_pctile,0)}`,`${t('斐波')} ${m.fib_name||'-'} ${fmt(m.fib_level)} (${t('距離')}${fmt(m.fib_dist_pct)}%)`,
+    `RSI ${fmt(m.rsi,1)}`,`${t('MACD柱')} ${fmt(m.macd_hist,3)} ${m.macd_note||''}`].join('\n');
 }
 /* ---- 市場分類過濾 ---- */
 const MKT={live:'all',sig:'all'};
@@ -271,8 +341,8 @@ async function loadLive(){
     rows.forEach(r=>{if(r.error)errs.push(r.symbol+': '+r.error)});
     const hk=rows.filter(r=>r.market!=='us'),us=rows.filter(r=>r.market==='us');
     $('#mktStats').textContent=
-      `🇭🇰 ${hk.length}隻 · 買入${hk.filter(r=>r.buy).length}   |   `+
-      `🇺🇸 ${us.length}隻 · 買入${us.filter(r=>r.buy).length}`;
+      `🇭🇰 ${hk.length} ${t('隻')} · ${t('買入')}${hk.filter(r=>r.buy).length}   |   `+
+      `🇺🇸 ${us.length} ${t('隻')} · ${t('買入')}${us.filter(r=>r.buy).length}`;
     const vis=rows.filter(r=>MKT.live==='all'||(r.market||'hk')===MKT.live);
     for(const r of vis){
       const f=r.flags||{};
@@ -287,18 +357,18 @@ async function loadLive(){
         <td>${flagCell(f.vol)}</td><td>${flagCell(f.trend)}</td><td>${flagCell(f.bb)}</td>
         <td>${flagCell(f.fib)}</td><td>${flagCell(f.rsi)}</td><td>${flagCell(f.macd)}</td>
         <td><span class="score ${scoreCls(r.score)}">${r.score??'-'}</span></td>
-        <td><span class="chip ph-${r.phase||'-'}">${PH[r.phase]||'-'}</span></td>
+        <td><span class="chip ph-${r.phase||'-'}">${t(PH[r.phase]||'-')}</span></td>
         <td class="mono" style="color:var(--dim)">${(r.ts||'').slice(11,19)||'-'}</td>`;
       tb.appendChild(tr);
     }
     if(!vis.length)
       tb.innerHTML='<tr><td colspan="14" class="empty">'+
-        (MKT.live==='all'?'等待掃描…(開市時段每 30 秒自動更新)':'此市場暫無資料')+'</td></tr>';
+        (MKT.live==='all'?t('等待掃描…(開市時段每 30 秒自動更新)'):t('此市場暫無資料'))+'</td></tr>';
     const fe=$('#feedErr');
     if(errs.length){
       fe.style.display='';
-      fe.innerHTML='⚠️ <b>'+errs.length+' 隻取數失敗</b>(可能 Yahoo 封鎖雲端 IP/休市): '+
-        esc(errs.slice(0,3).join(' | '))+(errs.length>3?' …等':'');
+      fe.innerHTML=`⚠️ <b>${errs.length} ${t('隻取數失敗')}</b>(${t('可能 Yahoo 封鎖雲端 IP/休市')}): `+
+        esc(errs.slice(0,3).join(' | '))+(errs.length>3?' …':'');
     }else fe.style.display='none';
   }catch(e){}
 }
@@ -313,14 +383,14 @@ async function loadSignals(){
     for(const s of list){
       const tr=document.createElement('tr');
       tr.innerHTML=`<td class="mono">${esc(s.ts)}</td>
-        <td class="side-${s.side.toLowerCase()}">${s.side==='BUY'?'🟢 買入':'🔴 賣出'}</td>
+        <td class="side-${s.side.toLowerCase()}">${s.side==='BUY'?t('🟢 買入'):t('🔴 賣出')}</td>
         <td class="mono">${esc(s.symbol)}</td><td>${esc(s.flags?.name||'')}</td>
         <td class="mono">${fmt(s.price)}</td>
         <td class="mono">${s.pnl!=null?pct(s.pnl):'-'}</td>
         <td>${s.score??'-'}</td><td style="max-width:340px;white-space:normal">${esc(s.note)}</td>`;
       tb.appendChild(tr);
     }
-    if(!list.length)tb.innerHTML='<tr><td colspan="8" class="empty">暫無訊號</td></tr>';
+    if(!list.length)tb.innerHTML=`<tr><td colspan="8" class="empty">${t('暫無訊號')}</td></tr>`;
   }catch(e){}
 }
 
@@ -337,44 +407,47 @@ async function loadBacktests(){
         <td class="mono">${fmt(s.win_rate,1)}%</td>
         <td class="mono">${s.trades??'-'}</td>
         <td class="mono">${pct(s.total_return_pct)}</td>
-        <td><button onclick="showBT(${b.id})">詳情</button></td>`;
+        <td><button onclick="showBT(${b.id})">${t('詳情')}</button></td>`;
       tb.appendChild(tr);
     }
-    if(!list.length)tb.innerHTML='<tr><td colspan="8" class="empty">尚無回測 — 等待排程器首次基準回測,或執行 python run.py tune</td></tr>';
+    if(!list.length)tb.innerHTML=`<tr><td colspan="8" class="empty">${t('尚無回測 — 等待排程器首次基準回測,或執行 python run.py tune')}</td></tr>`;
   }catch(e){}
 }
 async function showBT(id){
   const d=await (await api('/api/backtests/'+id)).json();
   const m=d.metrics||{},el=$('#btDetail');
   el.style.display='';
-  el.innerHTML=`<h2>回測 #${d.id} 詳情(${esc(d.ts)} · ${esc(d.kind)})</h2>
+  el.innerHTML=`<h2>${t('回測 #')}${d.id} · ${esc(d.ts)} · ${esc(d.kind)}</h2>
    <div class="grid" style="margin-bottom:12px">
-     ${[['獲利因子 PF',fmt(m.profit_factor,2)],['勝率',fmt(m.win_rate,1)+'%'],
-        ['總交易',m.trades],['期望值/筆',pct(m.expectancy_pct)],
-        ['平均盈利',pct(m.avg_win_pct)],['平均虧損',pct(m.avg_loss_pct)],
-        ['總報酬(複利)',pct(m.total_return_pct)],['年化',pct(m.cagr_pct)],
-        ['最大回撤','-'+fmt(m.max_drawdown_pct,1)+'%'],['交易天數',m.trade_days]]
+     ${[[t('獲利因子'),fmt(m.profit_factor,2)],[t('勝率'),fmt(m.win_rate,1)+'%'],
+        [t('交易數'),m.trades],[t('期望值/筆'),pct(m.expectancy_pct)],
+        [t('平均盈利'),pct(m.avg_win_pct)],[t('平均虧損'),pct(m.avg_loss_pct)],
+        [t('總報酬(複利)'),pct(m.total_return_pct)],[t('年化'),pct(m.cagr_pct)],
+        [t('最大回撤'),'-'+fmt(m.max_drawdown_pct,1)+'%'],[t('交易天數'),m.trade_days]]
        .map(([k,v])=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}
    </div>
-   <h2 style="margin-top:6px">權益曲線(同日均報酬複利)</h2>
+   <h2 style="margin-top:6px">${t('權益曲線(同日均報酬複利)')}</h2>
    <canvas id="eqChart"></canvas>
-   <h2 style="margin-top:12px">最佳化參數覆蓋</h2>
+   <h2 style="margin-top:12px">${t('最佳化參數覆蓋')}</h2>
    <pre style="background:var(--card2);padding:10px;border-radius:10px;overflow-x:auto;font-size:12.5px">${esc(JSON.stringify(d.overrides,null,2))}</pre>
-   <h2 style="margin-top:12px">每股表現</h2>
-   <div class="tblwrap"><table><thead><tr><th>代號</th><th>交易</th><th>勝率</th><th>PF</th><th>總報酬</th></tr></thead><tbody>
+   <h2 style="margin-top:12px">${t('每股表現')}</h2>
+   <div class="tblwrap"><table><thead><tr><th>${t('代號')}</th><th>${t('交易數')}</th><th>${t('勝率')}</th><th>PF</th><th>${t('總報酬')}</th></tr></thead><tbody>
      ${Object.entries(m.per_symbol||{}).map(([s,x])=>`<tr><td>${esc(s)}</td><td>${x.trades}</td>
        <td>${fmt(x.win_rate,1)}%</td><td>${fmt(x.profit_factor,2)}</td><td>${pct(x.total_return_pct)}</td></tr>`).join('')}
    </tbody></table></div>
-   <h2 style="margin-top:12px">近期交易(最多500筆)</h2>
-   <div class="tblwrap"><table><thead><tr><th>日期</th><th>代號</th><th>進場</th><th>出場</th><th>原因</th><th>報酬</th></tr></thead><tbody>
-     ${(d.trades||[]).slice(-80).reverse().map(t=>`<tr><td class="mono">${t.date}</td><td>${esc(t.symbol)}</td>
-       <td class="mono">${fmt(t.entry)}</td><td class="mono">${fmt(t.exit)}</td>
-       <td>${reasonZh(t.reason)}</td><td class="mono">${pct(t.ret_pct)}</td></tr>`).join('')}
+   <h2 style="margin-top:12px">${t('近期交易(最多500筆)')}</h2>
+   <div class="tblwrap"><table><thead><tr><th>${t('日期')}</th><th>${t('代號')}</th><th>${t('進場')}</th><th>${t('出場')}</th><th>${t('原因')}</th><th>${t('報酬')}</th></tr></thead><tbody>
+     ${(d.trades||[]).slice(-80).reverse().map(tr=>`<tr><td class="mono">${tr.date}</td><td>${esc(tr.symbol)}</td>
+       <td class="mono">${fmt(tr.entry)}</td><td class="mono">${fmt(tr.exit)}</td>
+       <td>${reasonZh(tr.reason)}</td><td class="mono">${pct(tr.ret_pct)}</td></tr>`).join('')}
    </tbody></table></div>`;
   drawEquity($('#eqChart'),d.equity||[]);
   el.scrollIntoView({behavior:'smooth'});
 }
-const reasonZh=r=>({'take-profit':'🎯 目標+5%','stop-loss':'🛑 止損','eod-close':'⏰ 收市平倉'}[r]||r);
+const reasonZh=r=>({'take-profit':t('🎯 目標+5%'),'stop-loss':t('🛑 止損'),'eod-close':t('⏰ 收市平倉')}[r]||r);
+Object.assign(EN,{"🎯 目標+5%":"🎯 +5% target hit","🛑 止損":"🛑 Stop-loss","⏰ 收市平倉":"⏰ EOD close",
+"期望值/筆":"Expectancy","平均盈利":"Avg win","平均虧損":"Avg loss","總報酬(複利)":"Total return","年化":"CAGR","交易天數":"Trade days",
+"分析中…":"Analyzing…","柱 ":"Hist ","分位 ":"pctile ","❌":"❌"});
 
 /* ---- canvas equity chart(離線可用,不依賴CDN)---- */
 function drawEquity(cv,pts){
@@ -418,8 +491,8 @@ const FZH={vol:'① 成交量放大',trend:'② 均線向上·價在均線上',b
 function fv(m,k){
   const v=m?.[k];if(v==null)return'';
   if(k==='vol_ratio')return v+'×';if(k==='rsi')return String(v);
-  if(k==='fib_level')return '@'+v;if(k==='fib_dist_pct')return '距離'+v+'%';
-  if(k==='macd_hist')return '柱 '+v;if(k==='bb_width_pctile')return '分位 '+v;
+  if(k==='fib_level')return '@'+v;if(k==='fib_dist_pct')return t('距離')+v+'%';
+  if(k==='macd_hist')return t('柱 ')+v;if(k==='bb_width_pctile')return t('分位 ')+v;
   return String(v);
 }
 async function doAnalyze(){
@@ -444,7 +517,7 @@ function renderAnalyze(d){
     else if(k==='rsi')detail=fv(m,'rsi');
     else if(k==='macd')detail=`${fv(m,'macd_hist')} ${m.macd_note||''}`;
     return `<div class="kpi" style="${on?'border-color:var(--up)':''}">
-      <div class="k">${on?'✅':'▫️'} ${FZH[k]}</div>
+      <div class="k">${on?'✅':'▫️'} ${t(FZH[k])}</div>
       <div class="v" style="font-size:15px;color:${on?'var(--up)':'var(--dim)'}">${detail||'—'}</div></div>`;
   }).join('');
   const tr=ctx_rules();
@@ -452,13 +525,13 @@ function renderAnalyze(d){
     <h2>${d.market==='us'?'🇺🇸':'🇭🇰'} <b>${esc(d.symbol)}</b> ${esc(d.name||'')}
       <span class="score ${scoreCls(d.score)}" style="font-size:16px">${d.score}/6</span></h2>
     <div class="grid" style="margin-bottom:10px">
-      <div class="kpi"><div class="k">${esc(String(d.bar_size))}K 現價</div><div class="v">${fmt(d.close)}</div></div>
-      <div class="kpi"><div class="k">單K漲跌</div><div class="v">${pct(d.chg_pct)}</div></div>
-      <div class="kpi"><div class="k">止損參考</div><div class="v neg">${fmt((d.close||0)*(1-(tr.stop_loss_pct||3)/100))}</div></div>
-      <div class="kpi"><div class="k">目標(+${tr.take_profit_pct||5}%)</div><div class="v pos">${fmt((d.close||0)*(1+(tr.take_profit_pct||5)/100))}</div></div>
+      <div class="kpi"><div class="k">${esc(String(d.bar_size))}K ${t('現價')}</div><div class="v">${fmt(d.close)}</div></div>
+      <div class="kpi"><div class="k">${t('單K漲跌')}</div><div class="v">${pct(d.chg_pct)}</div></div>
+      <div class="kpi"><div class="k">${t('止損參考')}</div><div class="v neg">${fmt((d.close||0)*(1-(tr.stop_loss_pct||3)/100))}</div></div>
+      <div class="kpi"><div class="k">${t('目標')}(+${tr.take_profit_pct||5}%)</div><div class="v pos">${fmt((d.close||0)*(1+(tr.take_profit_pct||5)/100))}</div></div>
     </div>
     <div class="grid">${flags}</div>
-    ${d.buy?'<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 符合買入條件(≥'+(META?.trade_rules?tr_min():4)+' 項成立)</p>':''}
+    ${d.buy?`<p class="note" style="color:var(--up);font-size:14px;margin-top:8px">🟢 ${t('符合買入條件')}(≥${META?.trade_rules?tr_min():4} ${t('項成立')})</p>`:''}
   </div>`;
 }
 function tr_min(){return META?.strategy?.min_score??4}
@@ -466,7 +539,7 @@ function ctx_rules(){return META?.trade_rules||{take_profit_pct:5,stop_loss_pct:
 async function doSingleBT(){
   const sym=$('#cxSym').value.trim();if(!sym)return;
   $('#cxResult').insertAdjacentHTML('afterbegin',
-    '<div class="card" id="btSpin"><div class="empty">⏳ 正在回測最近 5 年…(約數秒)</div></div>');
+    `<div class="card" id="btSpin"><div class="empty">${t('⏳ 正在回測最近 5 年…(約數秒)')}</div></div>`);
   try{
     const r=await api('/api/backtest-single',{method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -476,15 +549,15 @@ async function doSingleBT(){
     if(d.detail){$('#cxResult').insertAdjacentHTML('afterbegin',
       `<div class="card"><div class="empty">❌ ${esc(d.detail)}</div></div>`);return;}
     $('#cxResult').insertAdjacentHTML('afterbegin',`<div class="card">
-      <h2>📊 ${esc(d.symbol)} 近 ${d.years} 年回測 <span class="note">#${d.run_id} · 已存入回測清單,可到「回測與調叟」看詳情</span></h2>
+      <h2>📊 ${esc(d.symbol)} ${t('回測')} ${d.years}y <span class="note">#${d.run_id} · ${t('已存入回測清單,可到「回測與調叟」看詳情')}</span></h2>
       <div class="grid">
-        <div class="kpi"><div class="k">獲利因子</div><div class="v">${fmt(d.profit_factor,2)}</div></div>
-        <div class="kpi"><div class="k">勝率</div><div class="v">${fmt(d.win_rate,1)}%</div></div>
-        <div class="kpi"><div class="k">交易數</div><div class="v">${d.trades}</div></div>
-        <div class="kpi"><div class="k">總報酬</div><div class="v">${pct(d.total_return_pct)}</div></div>
-        <div class="kpi"><div class="k">最大回撤</div><div class="v">-${fmt(d.max_drawdown_pct,1)}%</div></div>
+        <div class="kpi"><div class="k">${t('獲利因子')}</div><div class="v">${fmt(d.profit_factor,2)}</div></div>
+        <div class="kpi"><div class="k">${t('勝率')}</div><div class="v">${fmt(d.win_rate,1)}%</div></div>
+        <div class="kpi"><div class="k">${t('交易數')}</div><div class="v">${d.trades}</div></div>
+        <div class="kpi"><div class="k">${t('總報酬')}</div><div class="v">${pct(d.total_return_pct)}</div></div>
+        <div class="kpi"><div class="k">${t('最大回撤')}</div><div class="v">-${fmt(d.max_drawdown_pct,1)}%</div></div>
       </div></div>`);
-  }catch(e){$('#btSpin')?.remove();alert('回測失敗:'+e)}
+  }catch(e){$('#btSpin')?.remove();alert(t('回測失敗:')+e)}
 }
 
 /* ---- 🤖 AI 解讀 ---- */
@@ -493,7 +566,7 @@ async function loadAIProviders(){
   try{
     const d=await(await api('/api/ai/providers')).json();
     const sel=$('#cxAI');sel.innerHTML='';
-    if(!d.configured){sel.innerHTML='<option value="">AI:未設定</option>';return;}
+    if(!d.configured){sel.innerHTML=`<option value="">${t('AI:未設定')}</option>`;return;}
     (d.providers||[]).forEach(p=>{
       const o=document.createElement('option');
       o.value=p.name;o.textContent='🤖 '+p.name+(p.model?(' · '+p.model):'');
@@ -504,24 +577,24 @@ async function loadAIProviders(){
 }
 async function doAI(){
   const sym=$('#cxSym').value.trim();
-  if(!sym){alert('請先輸入代號');return;}
+  if(!sym){alert(t('輸入代號:AAPL、TSLA、0700.HK…'));return;}
   $('#cxResult').insertAdjacentHTML('afterbegin',
-    '<div class="card" id="aiSpin"><div class="empty">🤖 AI 分析中…(約5-20秒)</div></div>');
+    `<div class="card" id="aiSpin"><div class="empty">${t('🤖 AI 分析中…(約5-20秒)')}</div></div>`);
   try{
     const r=await api('/api/ai/analyze',{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({symbol:sym,size:$('#cxSize').value,
-                           provider:$('#cxAI').value||null})});
+                           provider:$('#cxAI').value||null,lang:LANG})});
     const d=await r.json();
     $('#aiSpin')?.remove();
     if(d.detail){$('#cxResult').insertAdjacentHTML('afterbegin',
       `<div class="card"><div class="empty">❌ ${esc(d.detail)}</div></div>`);return;}
     renderAICard(d);
-  }catch(e){$('#aiSpin')?.remove();alert('AI 分析失敗:'+e)}
+  }catch(e){$('#aiSpin')?.remove();alert(t('AI 分析失敗:')+e)}
 }
 function renderAICard(d){
   $('#cxResult').insertAdjacentHTML('afterbegin',`<div class="card">
-    <h2>🤖 AI 解讀 — ${esc(d.symbol)} <span class="note">${esc(d.provider)} · ${esc(d.model)} · ${d.latency_s}s</span>
+    <h2>${t('🤖 AI 解讀')} — ${esc(d.symbol)} <span class="note">${esc(d.provider)} · ${esc(d.model)} · ${d.latency_s}s</span>
       <span class="score ${scoreCls(d.score)}">${d.score??'-'}/6</span></h2>
     <div style="white-space:pre-wrap;line-height:1.75;font-size:14px">${esc(d.content)}</div>
   </div>`);
@@ -571,44 +644,43 @@ async function renderSettings(){
                lookback_bars:CFGFULL.scanner.lookback_bars};
   let html='';
   for(const [g,title,fields] of SCHEMA){
-    html+=`<h2 style="margin-top:12px">${title}</h2><div class="grid">`;
+    html+=`<h2 style="margin-top:12px">${t(title)}</h2><div class="grid">`;
     for(const [k,label,type] of fields){
       const id=`pf_${g}_${k}`,val=src[g]?.[k];
       if(type==='chk')
-        html+=`<div class="kpi"><label class="k"><input type="checkbox" id="${id}" data-g="${g}" data-k="${k}" data-t="chk" ${val?'checked':''}> ${label}</label></div>`;
+        html+=`<div class="kpi"><label class="k"><input type="checkbox" id="${id}" data-g="${g}" data-k="${k}" data-t="chk" ${val?'checked':''}> ${t(label)}</label></div>`;
       else if(type.startsWith('sel:'))
-        html+=`<div class="kpi"><div class="k">${label}</div><select id="${id}" data-g="${g}" data-k="${k}" data-t="str">${
+        html+=`<div class="kpi"><div class="k">${t(label)}</div><select id="${id}" data-g="${g}" data-k="${k}" data-t="str">${
           type.split(':')[1].split('|').map(o=>`<option ${o===String(val)?'selected':''}>${o}</option>`).join('')}</select></div>`;
       else
-        html+=`<div class="kpi"><div class="k">${label}</div><input id="${id}" data-g="${g}" data-k="${k}" data-t="${type}" value="${esc(val)}" style="width:100%" ${type==='pwd'?'type="password"':''}></div>`;
+        html+=`<div class="kpi"><div class="k">${t(label)}</div><input id="${id}" data-g="${g}" data-k="${k}" data-t="${type}" value="${esc(val)}" style="width:100%" ${type==='pwd'?'type="password"':''}></div>`;
     }
     html+='</div>';
   }
   // 監察名單
-  html+=`<h2 style="margin-top:14px">監察名單(每行一個代號)</h2><div class="grid">
-    <div class="kpi"><div class="k">🇭🇰 港股(如 0700.HK)</div>
+  html+=`<h2 style="margin-top:14px">${t('監察名單(每行一個代號)')}</h2><div class="grid">
+    <div class="kpi"><div class="k">${t('🇭🇰 港股(如 0700.HK)')}</div>
       <textarea id="pf_wl_hk" rows="6" style="width:100%">${esc(CFGFULL.scanner.watchlist.join('\n'))}</textarea></div>
-    <div class="kpi"><div class="k">🇺🇸 美股(如 AAPL)</div>
+    <div class="kpi"><div class="k">${t('🇺🇸 美股(如 AAPL)')}</div>
       <textarea id="pf_wl_us" rows="6" style="width:100%">${esc(CFGFULL.scanner.watchlist_us.join('\n'))}</textarea></div>
   </div>
-  <p class="note">${CFGFULL.overlay_active?'⚠️ 目前「每日調叟覆蓋」生效中——基礎參數的閾值會被 best_params.json 覆蓋。想讓此頁參數完全生效請按「清除每日調叟覆蓋」。':''}</p>`;
+  <p class="note">${CFGFULL.overlay_active?t('⚠️ 目前「每日調叟覆蓋」生效中——基礎參數的閾值會被 best_params.json 覆蓋。想讓此頁參數完全生效請按「清除每日調叟覆蓋」。'):''}</p>`;
   // 🤖 AI 模型管理
-  html+=`<h2 style="margin-top:14px">🤖 AI 分析模型(自行加不同 model / API)</h2>
+  html+=`<h2 style="margin-top:14px">${t('🤖 AI 分析模型(自行加不同 model / API)')}</h2>
     <div id="aiRows"></div>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
       <select id="aiPreset">
-        <option value="">— 選供應商模板 —</option>
+        <option value="">${t('— 選供應商模板 —')}</option>
         ${Object.keys(AI_PRESETS).map(k=>`<option>${k}</option>`).join('')}
       </select>
-      <button class="ghost" onclick="aiAddRow()">＋ 新增模型</button>
-      <button onclick="aiSaveRows()">💾 儲存 AI 設定</button>
+      <button class="ghost" onclick="aiAddRow()">${t('＋ 新增模型')}</button>
+      <button onclick="aiSaveRows()">${t('💾 儲存 AI 設定')}</button>
       <span id="aiMsg" class="note"></span>
     </div>
-    <p class="note">API Key 只存在本伺服器的 config.yaml(不入 GitHub)。設好後到
-     「🔍 自選分析」輸入代號按「🤖 AI 解讀」即可。任何 OpenAI 相容端點皆可(DeepSeek/OpenAI/Gemini/OpenRouter/Kimi/Qwen/Groq/Ollama…)。</p>`;
+    <p class="note">${t('API Key 只存在本伺服器的 config.yaml(不入 GitHub)。設好後到「🔍 自選分析」輸入代號按「🤖 AI 解讀」即可。任何 OpenAI 相容端點皆可(DeepSeek/OpenAI/Gemini/OpenRouter/Kimi/Qwen/Groq/Ollama…)。')}</p>`;
   $('#setForm').innerHTML=html;
   aiRenderRows();
-  $('#ovBadge').textContent=CFGFULL.overlay_active?'(目前由每日調叟覆蓋接管閾值)':'';
+  $('#ovBadge').textContent=CFGFULL.overlay_active?t('(目前由每日調叟覆蓋接管閾值)'):'';
 }
 /* ---- 🤖 AI 模型管理 ---- */
 const AI_PRESETS={
@@ -626,21 +698,21 @@ function aiRenderRows(){
   const dflt=(CFGFULL.ai&&CFGFULL.ai.default)||'';
   const box=$('#aiRows');box.innerHTML='';
   list.forEach((p,i)=>box.insertAdjacentHTML('beforeend',aiRowHTML(p,i,dflt)));
-  if(!list.length)box.innerHTML='<div class="empty">尚未加入任何模型 — 上方選模板再按「＋ 新增模型」</div>';
+  if(!list.length)box.innerHTML=`<div class="empty">${t('尚未加入任何模型 — 上方選模板再按「＋ 新增模型」')}</div>`;
   const ps=$('#aiPreset');ps.onchange=()=>{if(ps.value)aiAddRow()};
 }
 function aiRowHTML(p,i,dflt){
   return `<div class="kpi" style="margin-bottom:8px">
     <div class="grid" style="gap:6px">
-      <div><div class="k">名稱</div><input id="ain${i}" value="${esc(p.name||'')}" style="width:100%"></div>
-      <div><div class="k">Base URL(OpenAI 相容)</div><input id="aib${i}" value="${esc(p.base_url||'')}" style="width:100%"></div>
+      <div><div class="k">${t('名稱')}</div><input id="ain${i}" value="${esc(p.name||'')}" style="width:100%"></div>
+      <div><div class="k">${t('Base URL(OpenAI 相容)')}</div><input id="aib${i}" value="${esc(p.base_url||'')}" style="width:100%"></div>
       <div><div class="k">Model</div><input id="aim${i}" value="${esc(p.model||'')}" style="width:100%"></div>
       <div><div class="k">API Key</div><input id="aik${i}" type="password" value="${esc(p.api_key||'')}" style="width:100%"></div>
     </div>
     <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
-      <label class="k"><input type="radio" name="aidflt" ${p.name===dflt?'checked':''} onchange="window._aiDflt='${esc(p.name)}'"> 預設</label>
-      <button class="ghost" onclick="aiTestRow(${i})">測試連線</button>
-      <button class="ghost" onclick="aiDelRow(${i})">刪除</button>
+      <label class="k"><input type="radio" name="aidflt" ${p.name===dflt?'checked':''} onchange="window._aiDflt='${esc(p.name)}'"> ${t('預設')}</label>
+      <button class="ghost" onclick="aiTestRow(${i})">${t('測試連線')}</button>
+      <button class="ghost" onclick="aiDelRow(${i})">${t('刪除')}</button>
       <span id="ait${i}" class="note"></span>
     </div></div>`;
 }
@@ -667,7 +739,7 @@ function aiCollect(){
 }
 async function aiSaveRows(){
   const provs=aiCollect();
-  $('#aiMsg').textContent='儲存中…';
+  $('#aiMsg').textContent=t('儲存中…');
   try{
     const dflt=(typeof window._aiDflt==='string'&&provs.some(p=>p.name===window._aiDflt))
       ?window._aiDflt:(provs[0]?.name||'');
@@ -675,12 +747,12 @@ async function aiSaveRows(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({providers:provs,default:dflt})});
     const d=await r.json();
-    $('#aiMsg').textContent=d.ok?`✅ 已儲存 ${d.count} 個模型,預設=${d.default}`:('❌ '+(d.detail||'失敗'));
+    $('#aiMsg').textContent=d.ok?`✅ ${d.count} ${t('個模型已儲存,預設=')}${d.default}`:('❌ '+(d.detail||''));
     loadAIProviders();
   }catch(e){$('#aiMsg').textContent='❌ '+e}
 }
 async function aiTestRow(i){
-  const el=$('#ait'+i);el.textContent='測試中…';
+  const el=$('#ait'+i);el.textContent=t('測試中…');
   const provs=aiCollect(),p=provs[i];if(!p){el.textContent='?';return;}
   try{
     const r=await api('/api/ai/settings-test',{method:'POST',
@@ -704,24 +776,25 @@ function collectSettings(){
   return out;
 }
 async function saveSettings(){
-  $('#setMsg').textContent='儲存中…';
+  $('#setMsg').textContent=t('儲存中…');
   try{
     const body=collectSettings();
     const r=await api('/api/config/full',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();
-    $('#setMsg').textContent=d.ok?'✅ 已儲存並即時生效':('❌ '+(d.detail||'失敗'));
+    $('#setMsg').textContent=d.ok?t('✅ 已儲存並即時生效'):('❌ '+(d.detail||''));
     loadMeta();
   }catch(e){$('#setMsg').textContent='❌ '+e}
 }
 async function clearOverlay(){
-  if(!confirm('確定刪除 best_params.json(每日調叟覆蓋)?'))return;
+  if(!confirm(t('確定刪除 best_params.json(每日調叟覆蓋)?')))return;
   await api('/api/config/clear-overlay',{method:'POST'});
-  $('#setMsg').textContent='✅ 已清除覆蓋,此頁參數現為生效值';
+  $('#setMsg').textContent=t('✅ 已清除覆蓋,此頁參數現為生效值');
   renderSettings();loadMeta();
 }
 
 /* ---- polling ---- */
+applyStatic();
 loadMeta();loadLive();loadAIProviders();
 setInterval(loadLive,10000);
 setInterval(loadMeta,30000);

@@ -27,6 +27,22 @@ SYSTEM_PROMPT = (
 )
 
 
+SYSTEM_PROMPT_EN = (
+    "You are a professional intraday technical-analysis assistant. The user supplies "
+    "the latest six indicator readings for one stock (volume surge / EMA uptrend with "
+    "price above / Bollinger expansion / Fibonacci 38.2-61.8% retracement / RSI holding "
+    "near 50 and turning up / MACD histogram shrinking + golden cross). Note HK vs US "
+    "market differences (sessions, liquidity, currency, fees).\n"
+    "Reply in English, exactly this format:\n"
+    "[Verdict] Bullish / Bearish / Stand aside + one-line reason\n"
+    "[Indicators] One line each (met: strength; not met: what's missing)\n"
+    "[Key Levels] Support / resistance / stop reference\n"
+    "[Trade Plan] Conservative entry strategy & sizing\n"
+    "[Confidence] 0-10\n"
+    "End with a one-line disclaimer. Keep it under 220 words, no filler."
+)
+
+
 def build_user_prompt(payload: dict) -> str:
     """payload = analyze 端點的結果(res)+ 交易規則。壓成精簡 JSON。"""
     mk = payload.get("market")
@@ -96,9 +112,11 @@ def chat_completion(provider: dict, messages: list[dict],
         raise RuntimeError(f"[{name}] 回應格式異常: {r.text[:180]}")
 
 
-def analyze_payload(provider: dict, payload: dict) -> tuple[str, float]:
-    """對一次 analyze() 的結果做 AI 解讀。"""
-    msgs = [{"role": "system", "content": SYSTEM_PROMPT},
+def analyze_payload(provider: dict, payload: dict,
+                    lang: str = "zh") -> tuple[str, float]:
+    """對一次 analyze() 的結果做 AI 解讀;lang=en 時用英文提示詞。"""
+    sys_prompt = SYSTEM_PROMPT_EN if lang == "en" else SYSTEM_PROMPT
+    msgs = [{"role": "system", "content": sys_prompt},
             {"role": "user", "content": build_user_prompt(payload)}]
     return chat_completion(provider, msgs)
 

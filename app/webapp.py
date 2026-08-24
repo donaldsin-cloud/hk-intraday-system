@@ -365,6 +365,7 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
         symbol: str
         size: str = "1m"
         provider: str | None = None
+        lang: str = "zh"
 
     @app.post("/api/ai/analyze")
     def ai_analyze(body: AIAnalyzeBody):
@@ -383,7 +384,8 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
         payload = {"symbol": sym, "market": market_of(sym), "bar_size": size,
                    **res, "trade_rules": ctx.cfg.trade_rules.__dict__}
         try:
-            content, dt = analyze_payload(p, payload)
+            content, dt = analyze_payload(p, payload,
+                                          lang="en" if body.lang == "en" else "zh")
         except RuntimeError as e:
             raise HTTPException(502, str(e))
         return {"ok": True, "provider": p.get("name"), "model": p.get("model"),
