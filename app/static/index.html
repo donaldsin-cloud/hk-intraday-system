@@ -61,6 +61,11 @@ canvas{width:100%;height:260px;display:block}
 .mono{font-variant-numeric:tabular-nums}
 .side-buy{color:var(--up);font-weight:700}.side-sell{color:var(--dn);font-weight:700}
 .empty{color:var(--dim);text-align:center;padding:26px 0;font-size:14px}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{background:rgba(255,255,255,.06)}
+th.sortable.sorted{color:var(--up)}
+th.sortable.sorted.asc::after{content:' ▲';font-size:10px}
+th.sortable.sorted.desc::after{content:' ▼';font-size:10px}
 .docbtn{padding:0 6px;margin-left:6px;font-size:12px;border-radius:8px}
 #docMask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
   z-index:60;align-items:center;justify-content:center;padding:18px}
@@ -113,14 +118,20 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
          margin-bottom:8px;white-space:normal"></div>
     <div class="tblwrap"><table id="liveTbl">
       <thead><tr>
-        <th data-zh="市場">市場</th><th data-zh="代號">代號</th><th data-zh="名稱">名稱</th><th data-zh="現價">現價</th><th>P&amp;L</th>
-        <th title="① 成交量放大" data-zh="①量">①量</th>
-        <th title="② 均線向上·價在均線上方" data-zh="②均線">②均線</th>
-        <th title="③ 布林帶開口" data-zh="③布林">③布林</th>
-        <th title="④ 回調至斐波 38.2/61.8" data-zh="④斐波">④斐波</th>
-        <th title="⑤ RSI 50 附近止穩回升" data-zh="⑤RSI">⑤RSI</th>
-        <th title="⑥ MACD 縮柱·金叉" data-zh="⑥MACD">⑥MACD</th>
-        <th data-zh="評分">評分</th><th data-zh="狀態">狀態</th><th data-zh="更新">更新</th>
+        <th data-zh="市場">市場</th>
+        <th class="sortable" data-k="symbol" onclick="sortBy('symbol')" data-zh="代號">代號</th>
+        <th class="sortable" data-k="name" onclick="sortBy('name')" data-zh="名稱">名稱</th>
+        <th class="sortable" data-k="price" onclick="sortBy('price')" data-zh="現價">現價</th>
+        <th class="sortable" data-k="pnl" title="P&amp;L" onclick="sortBy('pnl')">P&amp;L</th>
+        <th class="sortable" data-k="vol" title="① 成交量放大 — 按量比排序" onclick="sortBy('vol')" data-zh="①量">①量</th>
+        <th class="sortable" data-k="trend" title="② 均線向上·價在均線上方" onclick="sortBy('trend')" data-zh="②均線">②均線</th>
+        <th class="sortable" data-k="bb" title="③ 布林帶開口" onclick="sortBy('bb')" data-zh="③布林">③布林</th>
+        <th class="sortable" data-k="fib" title="④ 回調至斐波 38.2/61.8" onclick="sortBy('fib')" data-zh="④斐波">④斐波</th>
+        <th class="sortable" data-k="rsi" title="⑤ RSI 50 附近止穩回升" onclick="sortBy('rsi')" data-zh="⑤RSI">⑤RSI</th>
+        <th class="sortable" data-k="macd" title="⑥ MACD 縮柱·金叉" onclick="sortBy('macd')" data-zh="⑥MACD">⑥MACD</th>
+        <th class="sortable" data-k="score" onclick="sortBy('score')" data-zh="評分">評分</th>
+        <th class="sortable" data-k="phase" onclick="sortBy('phase')" data-zh="狀態">狀態</th>
+        <th data-zh="更新">更新</th>
       </tr></thead><tbody></tbody>
     </table></div>
     <p class="note" data-zh="買入 = 至少 4 項指標成立(min_score 可調,6 項全中為最強訊號)。持倉中到達 +5% 或止損會即時 Telegram 通知並標記賣出。">買入 = <b>至少 4 項指標成立</b>(min_score 可調,6 項全中為最強訊號)。持倉中到達 <b>+5%</b> 或止損會即時 Telegram 通知並標記賣出。</p>
@@ -276,6 +287,27 @@ function toggleLang(){
   if($('#tab-sig').style.display!=='none')loadSignals();
 }
 
+/* ---- 即時監察欄位排序 ---- */
+let SORT={k:null,dir:'desc'};
+function cmpVal(a,b){
+  const bad=v=>v==null||(typeof v==='number'&&isNaN(v));
+  if(bad(a)&&bad(b))return 0;
+  if(bad(a))return 1;                    // 空值永遠排最後
+  if(bad(b))return -1;
+  if(typeof a==='string'||typeof b==='string')
+    return String(a).localeCompare(String(b),'zh-Hant');
+  return a<b?-1:a>b?1:0;
+}
+function sortBy(k){
+  if(SORT.k===k)SORT.dir=SORT.dir==='asc'?'desc':'asc';
+  else{SORT.k=k;SORT.dir='desc'}
+  document.querySelectorAll('#liveTbl th.sortable').forEach(th=>{
+    th.classList.remove('sorted','asc','desc');
+    if(th.dataset.k===SORT.k)th.classList.add('sorted',SORT.dir);
+  });
+  loadLive();
+}
+
 /* ---- 存取金鑰 + 統一 fetch ---- */
 let KEY=localStorage.getItem('dsh_key')||'';
 function api(url,opt={}){
@@ -354,6 +386,21 @@ async function loadLive(){
       `🇭🇰 ${hk.length} ${t('隻')} · ${t('買入')}${hk.filter(r=>r.buy).length}   |   `+
       `🇺🇸 ${us.length} ${t('隻')} · ${t('買入')}${us.filter(r=>r.buy).length}`;
     const vis=rows.filter(r=>MKT.live==='all'||(r.market||'hk')===MKT.live);
+    /* ---- 欄位排序(點表頭切換升/降冪;輪詢重繪後仍保持)---- */
+    const PH_RANK={'-':0,'WATCH':1,'LONG':2,'DONE':3};
+    const KV={
+      symbol:r=>r.symbol||'',name:r=>r.name||'',price:r=>r.price,
+      pnl:r=>r.pnl,vol:r=>(r.metrics&&r.metrics.vol_ratio!=null)
+        ?r.metrics.vol_ratio:(r.flags&&r.flags.vol?1e12:-1),
+      trend:r=>r.flags&&r.flags.trend?1:0,bb:r=>r.flags&&r.flags.bb?1:0,
+      fib:r=>r.flags&&r.flags.fib?1:0,rsi:r=>r.flags&&r.flags.rsi?1:0,
+      macd:r=>r.flags&&r.flags.macd?1:0,score:r=>r.score==null?-1:r.score,
+      phase:r=>PH_RANK[r.phase]??0};
+    if(SORT.k)vis.sort((A,B)=>{
+      let c=cmpVal(KV[SORT.k](A),KV[SORT.k](B));
+      if(c===0)c=cmpVal(KV.score(A),KV.score(B));   // 平手按評分
+      return c*(SORT.dir==='asc'?1:-1);
+    });
     for(const r of vis){
       const f=r.flags||{};
       const tr=document.createElement('tr');
