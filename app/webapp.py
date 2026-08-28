@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from .config import ROOT, Config, market_of, normalize_symbol, stock_name
 from .datafeed import create_feed
-from . import indicators
+from . import indicators, sectors
 from .notifier import Notifier
 from .scanner import Scanner
 from .scheduler import Retuner
@@ -96,6 +96,8 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
                                       .get("enabled")))) if bad]),
             "scanner": ctx.scanner.status() if ctx.scanner else {"running": False},
             "retuner": ctx.retuner.status() if ctx.retuner else {"running": False},
+            "sectors": [{"key": k, "en": en, "zh": zh}
+                        for k, en, zh in sectors.SECTORS],
         }
 
     @app.post("/api/telegram/test")
@@ -143,6 +145,7 @@ def create_app(cfg: Config | None = None, autostart: bool | None = None) -> Fast
         except Exception:
             chg = None
         return {"symbol": sym, "name": stock_name(sym), "market": mk,
+                "sector": sectors.sector_of(sym),
                 "bar_size": size, "chg_pct": round(chg, 2) if chg is not None else None,
                 **res}
 

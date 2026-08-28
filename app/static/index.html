@@ -66,6 +66,8 @@ th.sortable:hover{background:rgba(255,255,255,.06)}
 th.sortable.sorted{color:var(--up)}
 th.sortable.sorted.asc::after{content:' ▲';font-size:10px}
 th.sortable.sorted.desc::after{content:' ▼';font-size:10px}
+.chip.sector{font-size:11px;padding:2px 8px;border-radius:99px;
+  background:rgba(59,130,246,.16);color:#93c5fd;border:1px solid rgba(59,130,246,.35)}
 .docbtn{padding:0 6px;margin-left:6px;font-size:12px;border-radius:8px}
 #docMask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
   z-index:60;align-items:center;justify-content:center;padding:18px}
@@ -112,6 +114,9 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
       <button class="mkt-btn ghost active" data-m="all" onclick="setMkt('live','all')" data-zh="全部">全部</button>
       <button class="mkt-btn ghost" data-m="hk" onclick="setMkt('live','hk')" data-zh="🇭🇰 港股">🇭🇰 港股</button>
       <button class="mkt-btn ghost" data-m="us" onclick="setMkt('live','us')" data-zh="🇺🇸 美股">🇺🇸 美股</button>
+      <span style="flex:1"></span>
+      <label class="note" data-zh="行業">行業</label>
+      <select id="sectorSel" onchange="setSector(this.value)" style="background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:3px 6px"></select>
       <span id="mktStats" class="note"></span>
     </div>
     <div id="feedErr" style="display:none;color:var(--dn);font-size:13px;
@@ -121,6 +126,7 @@ select,input{background:var(--card2);border:1px solid var(--line);color:var(--tx
         <th data-zh="市場">市場</th>
         <th class="sortable" data-k="symbol" onclick="sortBy('symbol')" data-zh="代號">代號</th>
         <th class="sortable" data-k="name" onclick="sortBy('name')" data-zh="名稱">名稱</th>
+        <th class="sortable" data-k="sector" onclick="sortBy('sector')" data-zh="行業">行業</th>
         <th class="sortable" data-k="price" onclick="sortBy('price')" data-zh="現價">現價</th>
         <th class="sortable" data-k="pnl" title="P&amp;L" onclick="sortBy('pnl')">P&amp;L</th>
         <th class="sortable" data-k="vol" title="① 成交量放大 — 按量比排序" onclick="sortBy('vol')" data-zh="①量">①量</th>
@@ -350,6 +356,11 @@ async function loadMeta(){
     setBadge('#hkBadge',META.hk_open,t('HK'));
     setBadge('#usBadge',META.us_open,t('US'));
     $('#feedTag').textContent='feed: '+META.feed+(META.telegram_enabled?' · TG✓':' · TG✗');
+    const sel=$('#sectorSel');
+    if(sel && sel.options.length===0 && META.sectors){
+      const all=document.createElement('option');all.value='all';all.textContent=t('全部行業');sel.appendChild(all);
+      META.sectors.forEach(s=>{const o=document.createElement('option');o.value=s.key;o.textContent=(LANG==='zh'?s.zh:s.en);sel.appendChild(o)});
+    }
     if(!META.telegram_enabled)
       $('#tgNote').textContent='⚠️ '+t('Telegram 未啟用')+
         ((META.tg_missing&&META.tg_missing.length)?' — 缺: '+META.tg_missing.join(' / '):'')+
@@ -367,11 +378,17 @@ function metricTip(m){
 }
 /* ---- 市場分類過濾 ---- */
 const MKT={live:'all',sig:'all'};
+const SECTOR={live:'all'};
 function setMkt(tab,m){
   MKT[tab]=m;
   $$('#tab-'+tab+' .mkt-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
   tab==='live'?loadLive():loadSignals();
 }
+function setSector(k){
+  SECTOR.live=k;
+  loadLive();
+}
+function sectorName(k){const s=(META?.sectors||[]).find(x=>x.key===k);return s?(LANG==='zh'?s.zh:s.en):(k||'?');}
 const mktOfSym=s=>String(s||'').toUpperCase().endsWith('.HK')?'hk':'us';
 
 async function loadLive(){
@@ -385,11 +402,13 @@ async function loadLive(){
     $('#mktStats').textContent=
       `🇭🇰 ${hk.length} ${t('隻')} · ${t('買入')}${hk.filter(r=>r.buy).length}   |   `+
       `🇺🇸 ${us.length} ${t('隻')} · ${t('買入')}${us.filter(r=>r.buy).length}`;
-    const vis=rows.filter(r=>MKT.live==='all'||(r.market||'hk')===MKT.live);
+    const vis=rows.filter(r=>(MKT.live==='all'||(r.market||'hk')===MKT.live)
+                          && (SECTOR.live==='all'||(r.sector||'other')===SECTOR.live));
     /* ---- 欄位排序(點表頭切換升/降冪;輪詢重繪後仍保持)---- */
     const PH_RANK={'-':0,'WATCH':1,'LONG':2,'DONE':3};
     const KV={
-      symbol:r=>r.symbol||'',name:r=>r.name||'',price:r=>r.price,
+      symbol:r=>r.symbol||'',name:r=>r.name||'',sector:r=>r.sector||'other',
+      price:r=>r.price,
       pnl:r=>r.pnl,vol:r=>(r.metrics&&r.metrics.vol_ratio!=null)
         ?r.metrics.vol_ratio:(r.flags&&r.flags.vol?1e12:-1),
       trend:r=>r.flags&&r.flags.trend?1:0,bb:r=>r.flags&&r.flags.bb?1:0,
@@ -409,6 +428,7 @@ async function loadLive(){
       tr.innerHTML=`<td>${r.market==='us'?'🇺🇸':'🇭🇰'}</td>
         <td class="mono"><b><a href="#" style="color:inherit" onclick="openCx('${esc(r.symbol)}');return false">${esc(r.symbol)}</a></b></td>
         <td>${esc(r.name)}</td>
+        <td><span class="chip sector" title="${esc(sectorName(r.sector))}">${esc(sectorName(r.sector))}</span></td>
         <td class="mono">${fmt(r.price)}</td>
         <td class="mono">${r.pnl!=null?pct(r.pnl):'-'}</td>
         <td>${flagCell(f.vol)}</td><td>${flagCell(f.trend)}</td><td>${flagCell(f.bb)}</td>
@@ -419,7 +439,7 @@ async function loadLive(){
       tb.appendChild(tr);
     }
     if(!vis.length)
-      tb.innerHTML='<tr><td colspan="14" class="empty">'+
+      tb.innerHTML='<tr><td colspan="15" class="empty">'+
         (MKT.live==='all'?t('等待掃描…(開市時段每 30 秒自動更新)'):t('此市場暫無資料'))+'</td></tr>';
     const fe=$('#feedErr');
     if(errs.length){
@@ -516,7 +536,7 @@ Object.assign(EN,{"🎯 目標+5%":"🎯 +5% target hit","🛑 止損":"🛑 Sto
 "美股選股時間(HKT)":"US run time (HKT)","選股數量":"Top N","自動寫入監察名單":"Auto-apply to watchlist",
 "立即選股港股":"Screen HK now","立即選股美股":"Screen US now","選股已啟動":"screening started",
 "選股中…約需 1-3 分鐘":"screening… 1-3 min","尚未選股":"not screened yet",
-"動能%":"Mom%","近高%":"Near high%"});
+"動能%":"Mom%","近高%":"Near high%","行業":"Sector","全部行業":"All sectors"});
 
 /* ---- canvas equity chart(離線可用,不依賴CDN)---- */
 function drawEquity(cv,pts){

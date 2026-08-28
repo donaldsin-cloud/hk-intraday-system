@@ -330,12 +330,26 @@ def test_screener_scoring():
     return "選股評分 + 候選池規模 ✓"
 
 
+def test_sectors():
+    """行業分類:sector_of 對港/美代號與各種寫法歸類正確。"""
+    from .sectors import sector_of, SECTORS, KEY2LABEL
+    assert len(SECTORS) == 11 and SECTORS[-1][0] == "other"
+    assert sector_of("0700.HK") == "comm"        # 騰訊
+    assert sector_of("AAPL") == "tech"
+    assert sector_of("700.HK") == "comm"          # 零補齊容錯
+    assert sector_of("aapl") == "tech"            # 大小寫
+    assert sector_of("0005.HK") == "financial"    # 匯豐
+    assert sector_of("UNKNOWN.XYZ") == "other"    # 未收錄 → 其他
+    assert KEY2LABEL["tech"] == "Technology"
+    return "行業分類(sector_of 港美股/寫法容錯)✓"
+
+
 def run_all() -> int:
     tests = [test_indicator_math, test_markets, test_ai,
              test_six_condition_trigger,
              test_backtest_pipeline, test_store_roundtrip, test_messages,
              test_strategy_type_coercion, test_custom_required_flags,
-             test_screener_scoring]
+             test_screener_scoring, test_sectors]
     print("=" * 62)
     print("港股即日買賣系統 — 自我測試")
     print("=" * 62)

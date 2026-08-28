@@ -9,6 +9,7 @@ from datetime import datetime
 
 from . import indicators
 from .config import market_of, stock_name
+from .sectors import sector_of
 from .utils import HKT, any_market_open, is_market_open, now_hkt, now_in, \
     open_markets, session_ends_within
 
@@ -130,7 +131,7 @@ class Scanner:
         m = res.get("metrics") or {}
         return {
             "symbol": sym, "name": stock_name(sym),
-            "market": market_of(sym),
+            "market": market_of(sym), "sector": sector_of(sym),
             "price": res.get("close"), "score": res.get("score"),
             "buy": res.get("buy"), "ready": res.get("ready"),
             "flags": res.get("flags"), "metrics": m,
@@ -145,8 +146,10 @@ class Scanner:
         out = []
         for sym, mk in self.cfg.scan_symbols():
             row = data.get(sym) or {"symbol": sym, "name": stock_name(sym),
-                                    "market": mk, "phase": "-", "ready": False}
+                                    "market": mk, "sector": sector_of(sym),
+                                    "phase": "-", "ready": False}
             row.setdefault("market", mk)
+            row.setdefault("sector", sector_of(sym))
             out.append(row)
         return out
 
